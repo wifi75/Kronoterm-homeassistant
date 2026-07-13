@@ -1,9 +1,19 @@
-# Kronoterm Integration for Home Assistant
+# Kronoterm Enhanced for Home Assistant
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![License](https://img.shields.io/github/license/Favio25/Kronoterm-homeassistant)](LICENSE)
+[![License](https://img.shields.io/github/license/wifi75/Kronoterm-homeassistant)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/wifi75/Kronoterm-homeassistant)](https://github.com/wifi75/Kronoterm-homeassistant/releases)
 
-A comprehensive Home Assistant integration for Kronoterm heat pumps, supporting both **Cloud API** and **local Modbus TCP** connections.
+A maintained fork by **Tiziano Cassone** ([@wifi75](https://github.com/wifi75)) of the original [Favio25/Kronoterm-homeassistant](https://github.com/Favio25/Kronoterm-homeassistant) integration. It supports Kronoterm heat pumps through the **Cloud API**, **Modbus TCP**, and **Modbus RTU**, with automatic migration of legacy entities.
+
+## Enhanced fork fixes
+
+- Migrates historical entity identifiers in place, preserving dashboards, custom names, and recorder history while removing duplicate registry entries.
+- Isolates cloud cookies for every config entry, so multiple Kronoterm accounts cannot overwrite one another.
+- Supports both Basic Auth and Kronoterm's web-session login during setup, with automatic heating/DHW endpoint detection.
+- Detects loop availability from both installation flags and live loop payloads.
+- Gives every energy entity an account-specific unique ID.
+- Includes stricter dependency bounds, source linting, and a clean cross-platform checkout.
 
 ## Features
 
@@ -48,7 +58,7 @@ A comprehensive Home Assistant integration for Kronoterm heat pumps, supporting 
 ### Via HACS (Recommended)
 
 1. Open HACS → Integrations → ⋮ (Menu) → Custom Repositories
-2. Add repository: `https://github.com/Favio25/Kronoterm-homeassistant`
+2. Add repository: `https://github.com/wifi75/Kronoterm-homeassistant`
 3. Category: Integration
 4. Search for "Kronoterm" and install
 5. Restart Home Assistant
@@ -134,7 +144,7 @@ ls /dev/tty* | grep -E "USB|AMA"
 ## Screenshots
 
 ### Dashboard
-![Dashboard](images/Dashboard.png)
+![Dashboard](images/dashboard.png)
 ![Dashboard 2](images/dashboard2.png)
 
 ### Energy Monitoring
@@ -240,6 +250,7 @@ Contributions welcome! Please:
 ## Credits
 
 - Original integration: [Favio25](https://github.com/Favio25)
+- Enhanced fork maintenance: [Tiziano Cassone (@wifi75)](https://github.com/wifi75)
 - Modbus TCP support and climate entities: Community contributions
 - Based on Kronoterm official register documentation
 

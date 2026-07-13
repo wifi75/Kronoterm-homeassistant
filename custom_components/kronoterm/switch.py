@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
@@ -20,10 +20,11 @@ _LOGGER = logging.getLogger(__name__)
 @dataclass
 class SwitchConfig:
     """Configuration for a Kronoterm shortcut switch."""
+
     name: str  # translation key
     unique_id_suffix: str
     json_key: str  # key in ShortcutsData
-    set_method_name: str # method name on coordinator
+    set_method_name: str  # method name on coordinator
 
 
 def _get_shortcuts_value(data: Optional[Dict[str, Any]], key: str) -> bool:
@@ -54,63 +55,91 @@ async def async_setup_entry(
 ) -> bool:
     """Set up Kronoterm switches based on config entry."""
     coordinator = hass.data[DOMAIN].get(entry.entry_id)
-    _LOGGER.debug("Switch platform setup - Coordinator type: %s, Entry: %s", 
-                   type(coordinator).__name__ if coordinator else "None", entry.entry_id)
-    
+    _LOGGER.debug(
+        "Switch platform setup - Coordinator type: %s, Entry: %s",
+        type(coordinator).__name__ if coordinator else "None",
+        entry.entry_id,
+    )
+
     if not coordinator:
         _LOGGER.error("Coordinator not found in hass.data[%s]", DOMAIN)
         return False
 
     entities = []
-    
+
     # Check if this is Modbus or Cloud coordinator
     is_modbus = type(coordinator).__name__ == "ModbusCoordinator"
-    
+
     if is_modbus:
         # Modbus switches read from binary registers (official documentation)
-        from .entities import KronotermModbusBase
 
         modbus_list = (coordinator.data or {}).get("main", {}).get("ModbusReg", [])
         available_addresses = {reg.get("address") for reg in modbus_list}
-        
+
         # System On/Off - register 2012 (CORRECTED from 2002)
-        entities.append(KronotermModbusSwitch(
-            entry, coordinator, 2012, "heatpump_switch",
-            "async_set_heatpump_state"
-        ))
-        
+        entities.append(
+            KronotermModbusSwitch(
+                entry, coordinator, 2012, "heatpump_switch", "async_set_heatpump_state"
+            )
+        )
+
         # Fast DHW Heating - register 2015
-        entities.append(KronotermModbusSwitch(
-            entry, coordinator, 2015, "fast_heating_switch", 
-            "async_set_fast_water_heating"
-        ))
-        
+        entities.append(
+            KronotermModbusSwitch(
+                entry,
+                coordinator,
+                2015,
+                "fast_heating_switch",
+                "async_set_fast_water_heating",
+            )
+        )
+
         # Additional Source - register 2016
-        entities.append(KronotermModbusSwitch(
-            entry, coordinator, 2016, "additional_source_switch",
-            "async_set_additional_source"
-        ))
-        
+        entities.append(
+            KronotermModbusSwitch(
+                entry,
+                coordinator,
+                2016,
+                "additional_source_switch",
+                "async_set_additional_source",
+            )
+        )
+
         # Reserve Source - register 2018 (NEW - was missing!)
-        entities.append(KronotermModbusSwitch(
-            entry, coordinator, 2018, "reserve_source_switch",
-            "async_set_reserve_source"
-        ))
-        
+        entities.append(
+            KronotermModbusSwitch(
+                entry,
+                coordinator,
+                2018,
+                "reserve_source_switch",
+                "async_set_reserve_source",
+            )
+        )
+
         # Anti-Legionella - register 2301 (extended only)
         if 2301 in available_addresses:
-            entities.append(KronotermModbusSwitch(
-                entry, coordinator, 2301, "antilegionella_switch",
-                "async_set_antilegionella"
-            ))
-        
+            entities.append(
+                KronotermModbusSwitch(
+                    entry,
+                    coordinator,
+                    2301,
+                    "antilegionella_switch",
+                    "async_set_antilegionella",
+                )
+            )
+
         # DHW Circulation - register 2328 (extended only)
         if 2328 in available_addresses:
-            entities.append(KronotermModbusSwitch(
-                entry, coordinator, 2328, "dhw_circulation_switch",
-                "async_set_dhw_circulation"
-            ))
-        
+            entities.append(
+                KronotermModbusSwitch(
+                    entry,
+                    coordinator,
+                    2328,
+                    "dhw_circulation_switch",
+                    "async_set_dhw_circulation",
+                )
+            )
+
         _LOGGER.debug("Created %d Modbus switches", len(entities))
     else:
         # Cloud API switches read from ShortcutsData
@@ -181,10 +210,9 @@ async def async_setup_entry(
                     "async_set_additional_source",
                 ),
             ]
-        
+
         entities = [
-            KronotermSwitch(entry, coordinator, config)
-            for config in switch_configs
+            KronotermSwitch(entry, coordinator, config) for config in switch_configs
         ]
 
     async_add_entities(entities, update_before_add=False)
@@ -230,18 +258,16 @@ class KronotermSwitch(CoordinatorEntity, SwitchEntity):
         try:
             # Get the method from the coordinator by its name
             method_to_call = getattr(self.coordinator, self._config.set_method_name)
-            
+
             # Call the method (e.g., self.coordinator.async_set_heatpump_state(True))
             await method_to_call(state)
-            
+
         except AttributeError:
             _LOGGER.error(
                 "Coordinator is missing method: %s", self._config.set_method_name
             )
         except Exception as err:
-            _LOGGER.error(
-                "Error setting %s to %s: %s", self.name, state, err
-            )
+            _LOGGER.error("Error setting %s to %s: %s", self.name, state, err)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
@@ -263,7 +289,9 @@ class ReservoirEntitySwitch(SwitchEntity):
     def __init__(self, coordinator):
         """Initialize the reservoir enable/disable switch."""
         self._coordinator = coordinator
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{DOMAIN}_reservoir_entity_switch"
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.entry_id}_{DOMAIN}_reservoir_entity_switch"
+        )
         self._attr_translation_key = "reservoir_entity_switch"
         self._attr_icon = "mdi:water"
 
@@ -271,7 +299,7 @@ class ReservoirEntitySwitch(SwitchEntity):
     def device_info(self):
         """Return the device info of the coordinator."""
         # Ensure the coordinator has the necessary device info attribute
-        if hasattr(self._coordinator, 'shared_device_info'):
+        if hasattr(self._coordinator, "shared_device_info"):
             return self._coordinator.shared_device_info
         return None
 
@@ -296,14 +324,17 @@ class ReservoirEntitySwitch(SwitchEntity):
         new_options["reservoir_enabled"] = enabled
         # Update the config entry so the option persists.
         self.hass.config_entries.async_update_entry(
-            self_coordinator.config_entry, options=new_options
+            self._coordinator.config_entry, options=new_options
         )
         # Optionally fire an event that other parts of your integration can listen to.
-        self.hass.bus.async_fire(f"{DOMAIN}_reservoir_enabled_changed", {"enabled": enabled})
+        self.hass.bus.async_fire(
+            f"{DOMAIN}_reservoir_enabled_changed", {"enabled": enabled}
+        )
+
 
 class KronotermModbusSwitch(SwitchEntity):
     """Switch entity for Modbus TCP (reads from register, writes via coordinator)."""
-    
+
     def __init__(
         self,
         entry: ConfigEntry,
@@ -317,27 +348,26 @@ class KronotermModbusSwitch(SwitchEntity):
         self._entry = entry
         self._address = address
         self._set_method_name = set_method_name
-        
+
         # Use translation_key-based unique_id to match Cloud API format (prevents duplicates on reconfigure)
         self._attr_unique_id = f"{entry.entry_id}_{DOMAIN}_{translation_key}"
         self._attr_translation_key = translation_key
         self._attr_device_info = coordinator.shared_device_info
         self._attr_has_entity_name = True
-    
+
     @property
     def available(self) -> bool:
         """Return if entity is available."""
         return (
-            self._coordinator.last_update_success
-            and self._coordinator.data is not None
+            self._coordinator.last_update_success and self._coordinator.data is not None
         )
-    
+
     @property
     def is_on(self) -> bool:
         """Return true if the switch is on."""
         if not self._coordinator.data:
             return False
-        
+
         # Get value from Modbus register
         modbus_list = self._coordinator.data.get("main", {}).get("ModbusReg", [])
         for reg in modbus_list:
@@ -345,9 +375,9 @@ class KronotermModbusSwitch(SwitchEntity):
                 raw_value = reg.get("raw", 0)
                 # Binary registers: 1 = on, 0 = off
                 return bool(raw_value)
-        
+
         return False
-    
+
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
         try:
@@ -358,12 +388,10 @@ class KronotermModbusSwitch(SwitchEntity):
             else:
                 _LOGGER.error("Failed to turn on %s", self._attr_translation_key)
         except AttributeError:
-            _LOGGER.error(
-                "Coordinator is missing method: %s", self._set_method_name
-            )
+            _LOGGER.error("Coordinator is missing method: %s", self._set_method_name)
         except Exception as err:
             _LOGGER.error("Error turning on %s: %s", self._attr_translation_key, err)
-    
+
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
         try:
@@ -374,8 +402,6 @@ class KronotermModbusSwitch(SwitchEntity):
             else:
                 _LOGGER.error("Failed to turn off %s", self._attr_translation_key)
         except AttributeError:
-            _LOGGER.error(
-                "Coordinator is missing method: %s", self._set_method_name
-            )
+            _LOGGER.error("Coordinator is missing method: %s", self._set_method_name)
         except Exception as err:
             _LOGGER.error("Error turning off %s: %s", self._attr_translation_key, err)

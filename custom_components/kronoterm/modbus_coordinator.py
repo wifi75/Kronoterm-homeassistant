@@ -6,7 +6,6 @@ Alternative to cloud API for local control.
 """
 
 import logging
-import asyncio
 import json
 from datetime import timedelta
 from pathlib import Path

@@ -1,11 +1,19 @@
 import logging
 from typing import Any, Dict, List, Optional
-from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
-from homeassistant.components.sensor import SensorEntity, SensorStateClass, SensorDeviceClass
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+    DataUpdateCoordinator,
+)
+from homeassistant.components.sensor import (
+    SensorEntity,
+    SensorStateClass,
+    SensorDeviceClass,
+)
 from homeassistant.util import dt as dt_util
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
+
 
 def _get_daily_energy(trend: Dict[str, List[float]], key: str) -> float:
     """
@@ -15,15 +23,17 @@ def _get_daily_energy(trend: Dict[str, List[float]], key: str) -> float:
     arr = trend.get(key, [])
     if not arr:
         return 0.0
-    
+
     # The last entry is the current day's accumulated value.
     return arr[-1]
+
 
 class KronotermDailyEnergySensor(CoordinatorEntity, SensorEntity):
     """
     Sensor that returns the current day's energy usage for a single consumption key,
     showing the accumulated value as provided by the API.
     """
+
     def __init__(
         self,
         coordinator: DataUpdateCoordinator,
@@ -34,7 +44,9 @@ class KronotermDailyEnergySensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._attr_has_entity_name = True
         self._attr_translation_key = name
-        self._attr_unique_id = f"{DOMAIN}_daily_{data_key}"
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.entry_id}_{DOMAIN}_daily_{data_key}"
+        )
         self._device_info = device_info
         self._data_key = data_key
 
@@ -53,11 +65,13 @@ class KronotermDailyEnergySensor(CoordinatorEntity, SensorEntity):
         value = _get_daily_energy(trend, self._data_key)
         return round(value, 3) if value is not None else None
 
+
 class KronotermDailyEnergyCombinedSensor(CoordinatorEntity, SensorEntity):
     """
     Sensor that sums the current day's energy usage from multiple consumption keys,
     showing the accumulated combined value.
     """
+
     def __init__(
         self,
         coordinator: DataUpdateCoordinator,
@@ -69,7 +83,9 @@ class KronotermDailyEnergyCombinedSensor(CoordinatorEntity, SensorEntity):
         self._attr_has_entity_name = True
         self._attr_translation_key = name
         joined_keys = "_".join(data_keys)
-        self._attr_unique_id = f"{DOMAIN}_daily_combined_{joined_keys}"
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.entry_id}_{DOMAIN}_daily_combined_{joined_keys}"
+        )
         self._device_info = device_info
         self._data_keys = data_keys
 
@@ -103,7 +119,7 @@ class KronotermCalculatedCurrentPowerSensor(CoordinatorEntity, SensorEntity):
         self._attr_has_entity_name = True
         self._attr_translation_key = name
         joined_keys = "_".join(data_keys)
-        self._attr_unique_id = f"{DOMAIN}_calculated_power_{joined_keys}"
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{DOMAIN}_calculated_power_{joined_keys}"
         self._device_info = device_info
         self._data_keys = data_keys
 

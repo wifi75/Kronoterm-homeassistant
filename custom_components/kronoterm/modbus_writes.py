@@ -6,7 +6,6 @@ Extracted from modbus_coordinator.py for better organization.
 """
 
 import logging
-from typing import Optional
 
 _LOGGER = logging.getLogger(__name__)
 

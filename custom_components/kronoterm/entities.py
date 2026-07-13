@@ -5,7 +5,6 @@ This file houses all Kronoterm base entity classes for improved maintainability.
 """
 
 import logging
-import re
 from typing import Any, Dict, List, Optional, Union
 
 from homeassistant.helpers.update_coordinator import (

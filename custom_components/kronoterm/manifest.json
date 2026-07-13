@@ -1,8 +1,11 @@
 {
   "domain": "kronoterm",
   "name": "Kronoterm",
+  "after_dependencies": [
+    "recorder"
+  ],
   "codeowners": [
-    "@Favio25"
+    "@wifi75"
   ],
   "config_flow": true,
   "dependencies": [
@@ -11,12 +14,12 @@
     "number",
     "climate"
   ],
-  "documentation": "https://github.com/Favio25/kronoterm-homeassistant",
+  "documentation": "https://github.com/wifi75/Kronoterm-homeassistant",
   "integration_type": "device",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/Favio25/kronoterm-homeassistant/issues",
+  "issue_tracker": "https://github.com/wifi75/Kronoterm-homeassistant/issues",
   "requirements": [
-    "pymodbus>=3.5.0"
+    "pymodbus>=3.8.0,<4.0.0"
   ],
-  "version": "1.6.7"
+  "version": "1.7.0"
 }
