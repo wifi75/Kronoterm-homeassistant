@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-07-13 — v1.7.4
+
+### Changed
+- Shows `Kronoterm · Enhanced by Tiziano Cassone (@wifi75)` in Home Assistant's device information for Cloud, DHW, and Modbus installations.
+- Adds the maintained fork URL as the device configuration link for Cloud installations while preserving the local device URL for Modbus.
+
 ## 2026-07-13 — v1.7.3
 
 ### Changed

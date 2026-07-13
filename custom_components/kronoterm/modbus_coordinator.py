@@ -18,7 +18,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.core import HomeAssistant
 from homeassistant.const import CONF_HOST, CONF_PORT
 
-from .const import DOMAIN, DEFAULT_SCAN_INTERVAL
+from .const import DEVICE_MANUFACTURER, DOMAIN, DEFAULT_SCAN_INTERVAL
 # All register definitions now come from kronoterm.json via RegisterMap
 # No more hardcoded Python constants needed!
 from .register_map import RegisterMap
@@ -280,7 +280,7 @@ class ModbusCoordinator(ModbusReadMixin, ModbusWriteMixin, DataUpdateCoordinator
             self.shared_device_info = {
                 "identifiers": {(DOMAIN, self.config_entry.entry_id)},
                 "name": "Kronoterm",
-                "manufacturer": "Kronoterm",
+                "manufacturer": DEVICE_MANUFACTURER,
                 "model": model_name,
                 "sw_version": firmware,
                 "configuration_url": f"http://{self.host}",
@@ -294,7 +294,7 @@ class ModbusCoordinator(ModbusReadMixin, ModbusWriteMixin, DataUpdateCoordinator
             self.shared_device_info = {
                 "identifiers": {(DOMAIN, self.config_entry.entry_id)},
                 "name": "Kronoterm",
-                "manufacturer": "Kronoterm",
+                "manufacturer": DEVICE_MANUFACTURER,
                 "model": self._format_model_name(),
             }
 
