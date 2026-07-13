@@ -1,6 +1,9 @@
 {
   "domain": "kronoterm",
   "name": "Kronoterm",
+  "after_dependencies": [
+    "recorder"
+  ],
   "codeowners": [
     "@wifi75"
   ],
@@ -10,9 +13,6 @@
     "binary_sensor",
     "number",
     "climate"
-  ],
-  "after_dependencies": [
-    "recorder"
   ],
   "documentation": "https://github.com/wifi75/Kronoterm-homeassistant",
   "integration_type": "device",
