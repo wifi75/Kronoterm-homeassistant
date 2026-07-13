@@ -1,4 +1,4 @@
-from typing import NamedTuple, Dict, List, Set, Any, Optional
+from typing import NamedTuple, Dict, List, Set, Optional
 
 DOMAIN = "kronoterm"
 BASE_URL = "https://cloud.kronoterm.com/jsoncgi.php"

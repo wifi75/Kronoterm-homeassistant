@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-07-13 — v1.7.0
+
+### Fixed
+- Migrates legacy sensor, binary sensor, switch, and energy `unique_id` values in place; when both registry records exist, the historical entity is retained and the generated duplicate is removed.
+- Isolates cloud HTTP sessions per config entry, fixing cross-account cookie and data leakage.
+- Adds web-session authentication fallback and automatic heating/DHW cloud detection to the config flow.
+- Rejects invalid cloud sessions instead of continuing with a coordinator that can never update.
+- Restores loop entities when the cloud reports live loop data but omits or mis-encodes installation flags.
+- Fixes the undefined `self_coordinator` reference in the reservoir option switch.
+- Makes energy sensor identifiers config-entry-specific and updates statistic lookup accordingly.
+
+### Changed
+- Personalized and maintained by Tiziano Cassone (`@wifi75`) while retaining attribution to the original project.
+- Constrains `pymodbus` to the supported 3.x API range.
+- Removes committed Python bytecode and the case-colliding dashboard image.
+- Adds Python source-quality validation to CI.
+
 ## 2026-03-17 — v1.6.4
 
 ### Added

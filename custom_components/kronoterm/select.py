@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
@@ -17,6 +17,7 @@ _LOGGER = logging.getLogger(__name__)
 @dataclass
 class SelectConfig:
     """A container for select entity configuration."""
+
     name: str  # User-facing name, e.g., "Loop 1 Operation"
     address: int
     page: int
@@ -30,9 +31,12 @@ async def async_setup_entry(
 ) -> None:
     """Set up Kronoterm select entities for different operations."""
     coordinator = hass.data.get(DOMAIN, {}).get(entry.entry_id)
-    _LOGGER.debug("Select platform setup - Coordinator type: %s, Entry: %s", 
-                   type(coordinator).__name__ if coordinator else "None", entry.entry_id)
-    
+    _LOGGER.debug(
+        "Select platform setup - Coordinator type: %s, Entry: %s",
+        type(coordinator).__name__ if coordinator else "None",
+        entry.entry_id,
+    )
+
     if not coordinator:
         _LOGGER.error("Coordinator not found in hass.data[%s]", DOMAIN)
         return
@@ -41,10 +45,6 @@ async def async_setup_entry(
     if getattr(coordinator, "system_type", "cloud") == "dhw":
         _LOGGER.info("Skipping select entities for DHW cloud")
         return
-
-    # Get the list of all addresses reported by the heat pump
-    modbus_list = (coordinator.data or {}).get("main", {}).get("ModbusReg", [])
-    available_addresses = {reg.get("address") for reg in modbus_list}
 
     # Define the configuration for each select entity.
     # NOTE: Loop mode selects are intentionally disabled; presets are now on climate entities.
@@ -63,7 +63,7 @@ async def async_setup_entry(
     #
     #     # Check if the specific Modbus address is reported by the pump
     #     is_available = config.address in available_addresses
-    #     
+    #
     #     if is_installed and is_available:
     #         entities.append(
     #             KronotermModeSelect(
@@ -92,7 +92,7 @@ async def async_setup_entry(
 class KronotermModeSelect(KronotermModbusBase, SelectEntity):
     """
     Select entity for Kronoterm offering three options: OFF, ON, AUTO.
-    
+
     Reads the current mode from a Modbus register via KronotermModbusBase.
     Changing the selection calls coordinator.async_set_loop_mode_by_page.
     """
@@ -114,10 +114,12 @@ class KronotermModeSelect(KronotermModbusBase, SelectEntity):
         """Initialize the Kronoterm select entity."""
         # Convert name to translation key
         translation_key = name.lower().replace(" ", "_")
-        
+
         # Initialize the base class
-        super().__init__(coordinator, address, translation_key, coordinator.shared_device_info)
-        
+        super().__init__(
+            coordinator, address, translation_key, coordinator.shared_device_info
+        )
+
         self._entry = entry
         self._page = page
         self._attr_unique_id = f"{entry.entry_id}_{DOMAIN}_{address}_mode"
@@ -126,7 +128,7 @@ class KronotermModeSelect(KronotermModbusBase, SelectEntity):
         """Process the raw modbus value and map it to an option string."""
         if raw_value is None:
             return None
-        
+
         try:
             # Use int(float()) to handle "2.0" or "2"
             val = int(float(raw_value))
@@ -136,7 +138,7 @@ class KronotermModeSelect(KronotermModbusBase, SelectEntity):
                 "Could not map enum value '%s' for sensor %s (address %s)",
                 raw_value,
                 self._name_key,
-                self._address
+                self._address,
             )
             return None
 
@@ -148,7 +150,7 @@ class KronotermModeSelect(KronotermModbusBase, SelectEntity):
     async def async_select_option(self, option: str) -> None:
         """
         Map the selected option to its corresponding register value and update the mode.
-        
+
         Logs an error if the option is unknown or if updating fails.
         """
         new_mode = self.OPTION_TO_VALUE.get(option)
@@ -156,14 +158,17 @@ class KronotermModeSelect(KronotermModbusBase, SelectEntity):
             _LOGGER.warning("Unknown option: %s", option)
             return
 
-        success = await self.coordinator.async_set_loop_mode_by_page(self._page, new_mode)
+        success = await self.coordinator.async_set_loop_mode_by_page(
+            self._page, new_mode
+        )
         if not success:
             _LOGGER.error("Failed to set mode for %s", self._attr_translation_key)
         # No need to request refresh here, async_set_loop_mode_by_page does it
 
+
 class KronotermOperationalModeSelect(CoordinatorEntity, SelectEntity):
     """Select entity for Kronoterm operational mode (ECO/Auto/Comfort).
-    
+
     Works for both Cloud API and Modbus TCP coordinators:
     - Cloud: Uses main_mode via API
     - Modbus: Uses register 2013
@@ -177,15 +182,20 @@ class KronotermOperationalModeSelect(CoordinatorEntity, SelectEntity):
         self._attr_translation_key = "operational_mode"
         self._attr_unique_id = f"{entry.entry_id}_{DOMAIN}_operational_mode"
         self._attr_device_info = coordinator.shared_device_info
-        
+
         # Determine if this is a Modbus coordinator
-        self._is_modbus = hasattr(coordinator, 'register_map') and coordinator.register_map is not None
-        
+        self._is_modbus = (
+            hasattr(coordinator, "register_map")
+            and coordinator.register_map is not None
+        )
+
         # MAIN_MODE_OPTIONS maps integer → string: {0: "auto", 1: "comfort", 2: "eco"}
         # For reading (int → string): Use MAIN_MODE_OPTIONS directly
         # For writing (string → int): Create reverse mapping
-        self.OPTION_TO_VALUE = {v: k for k, v in MAIN_MODE_OPTIONS.items()}  # {"auto": 0, "comfort": 1, "eco": 2}
-        
+        self.OPTION_TO_VALUE = {
+            v: k for k, v in MAIN_MODE_OPTIONS.items()
+        }  # {"auto": 0, "comfort": 1, "eco": 2}
+
         # Options are the string values from MAIN_MODE_OPTIONS
         self._attr_options = list(MAIN_MODE_OPTIONS.values())
 
@@ -239,9 +249,15 @@ class KronotermOperationalModeSelect(CoordinatorEntity, SelectEntity):
             return
 
         if self._is_modbus:
-            _LOGGER.info("Setting operational mode to %s (value %d) via Modbus register 2013", option, new_mode)
-            if hasattr(self.coordinator, 'write_register_by_address'):
-                success = await self.coordinator.write_register_by_address(2013, new_mode)
+            _LOGGER.info(
+                "Setting operational mode to %s (value %d) via Modbus register 2013",
+                option,
+                new_mode,
+            )
+            if hasattr(self.coordinator, "write_register_by_address"):
+                success = await self.coordinator.write_register_by_address(
+                    2013, new_mode
+                )
                 if success:
                     await self.coordinator.async_request_refresh()
                 else:
@@ -252,7 +268,6 @@ class KronotermOperationalModeSelect(CoordinatorEntity, SelectEntity):
             success = await self.coordinator.async_set_main_mode(new_mode)
             if not success:
                 _LOGGER.error("Failed to set operational mode to %s", option)
-
 
 
 class KronotermRegimeSelect(CoordinatorEntity, SelectEntity):
@@ -290,13 +305,13 @@ class KronotermRegimeSelect(CoordinatorEntity, SelectEntity):
             _LOGGER.warning("Unknown system regime option: %s", option)
             return
 
-        if hasattr(self.coordinator, 'write_register_by_address'):
+        if hasattr(self.coordinator, "write_register_by_address"):
             success = await self.coordinator.write_register_by_address(2017, new_value)
             if success:
                 await self.coordinator.async_request_refresh()
             else:
                 _LOGGER.error("Failed to write system regime to register 2017")
         else:
-            _LOGGER.error("Coordinator cannot write system regime (no write method available)")
-
-
+            _LOGGER.error(
+                "Coordinator cannot write system regime (no write method available)"
+            )

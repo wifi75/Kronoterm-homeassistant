@@ -1,21 +1,21 @@
 import logging
-import asyncio
 import aiohttp  # Make sure aiohttp is imported at the top
 import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.core import callback, HomeAssistant
+from homeassistant.core import callback
+
 # We no longer need async_get_clientsession
-from homeassistant.const import CONF_USERNAME, CONF_PASSWORD, CONF_HOST, CONF_PORT
+from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
 
 from .const import (
-    DOMAIN, 
-    BASE_URL, 
+    DOMAIN,
+    BASE_URL,
     BASE_URL_DHW,
     API_QUERIES_GET,
     API_QUERIES_GET_DHW,
-    DEFAULT_SCAN_INTERVAL, 
-    REQUEST_TIMEOUT
+    DEFAULT_SCAN_INTERVAL,
+    REQUEST_TIMEOUT,
 )
 
 from .config_flow_modbus import (
@@ -39,6 +39,7 @@ _LOGGER = logging.getLogger(__name__)
 
 SENSITIVE_KEYS = [CONF_USERNAME, CONF_PASSWORD]
 
+
 def sanitize_user_input(user_input: dict) -> dict:
     """
     Sanitizes user input by redacting sensitive information for logging purposes.
@@ -48,89 +49,115 @@ def sanitize_user_input(user_input: dict) -> dict:
         for key, value in user_input.items()
     }
 
-async def validate_credentials(data: dict, preferred_type: str = "auto") -> tuple[str | None, str | None]:
+
+async def _probe_cloud_endpoint(
+    base_url: str,
+    menu_query: dict,
+    username: str,
+    password: str,
+    phonegap_version: str,
+) -> bool:
+    """Validate one cloud endpoint using both supported login methods."""
+    auth = aiohttp.BasicAuth(username, password)
+    timeout = aiohttp.ClientTimeout(total=REQUEST_TIMEOUT)
+    headers = {
+        "phonegap": phonegap_version,
+        "X-Requested-With": "XMLHttpRequest",
+    }
+    login_url = (
+        "https://cloud.kronoterm.com/dhws/?login=1"
+        if "/dhws/" in base_url
+        else "https://cloud.kronoterm.com/?login=1"
+    )
+
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(
+                base_url,
+                auth=auth,
+                params=menu_query,
+                headers=headers,
+                timeout=timeout,
+            ) as response:
+                if response.status == 200:
+                    payload = await response.json(content_type=None)
+                    if "hp_id" in payload:
+                        return True
+        except (aiohttp.ClientError, ValueError):
+            pass
+
+        web_headers = {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Origin": "https://cloud.kronoterm.com",
+            "Referer": login_url,
+            "User-Agent": "Mozilla/5.0",
+        }
+        try:
+            async with session.post(
+                login_url,
+                data={"username": username, "password": password},
+                headers=web_headers,
+                timeout=timeout,
+                allow_redirects=True,
+            ) as response:
+                if response.status not in (200, 302):
+                    return False
+
+            async with session.get(
+                base_url,
+                params=menu_query,
+                headers={
+                    "X-Requested-With": "XMLHttpRequest",
+                    "User-Agent": "Mozilla/5.0",
+                },
+                timeout=timeout,
+            ) as response:
+                if response.status != 200:
+                    return False
+                payload = await response.json(content_type=None)
+                return "hp_id" in payload
+        except (aiohttp.ClientError, ValueError):
+            return False
+
+
+async def validate_credentials(
+    data: dict, preferred_type: str = "auto"
+) -> tuple[str | None, str | None]:
     """
     Validate the credentials by attempting a lightweight API call.
     Returns (error_code, system_type) on failure/success.
-    
+
     preferred_type: "auto" | "cloud" | "dhw"
     """
     username = data[CONF_USERNAME]
     password = data[CONF_PASSWORD]
-    auth = aiohttp.BasicAuth(username, password)
-    
-    timeout = aiohttp.ClientTimeout(total=REQUEST_TIMEOUT)
+    endpoints = {
+        "cloud": (BASE_URL, API_QUERIES_GET["menu"], "1.5.0"),
+        "dhw": (BASE_URL_DHW, API_QUERIES_GET_DHW["menu"], "1.0.7"),
+    }
+    candidates = (preferred_type,) if preferred_type in endpoints else ("cloud", "dhw")
 
-    async def _try_main() -> bool:
-        _LOGGER.debug("Attempting connection to Main Cloud...")
-        headers_main = {
-            "phonegap": "1.5.0",
-            "X-Requested-With": "XMLHttpRequest",
-        }
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.get(
-                    BASE_URL, 
-                    auth=auth, 
-                    params=API_QUERIES_GET["menu"], 
-                    headers=headers_main,
-                    timeout=timeout
-                ) as response:
-                    if response.status == 200:
-                        try:
-                            data = await response.json()
-                            return "hp_id" in data
-                        except Exception:
-                            return False
-                    if response.status == 401:
-                        return False
-            except Exception as e:
-                _LOGGER.debug("Main Cloud connection failed: %s", e)
-        return False
-
-    async def _try_dhw() -> bool:
-        _LOGGER.debug("Attempting connection to DHW Cloud...")
-        headers_dhw = {
-            "phonegap": "1.0.7",
-            "X-Requested-With": "XMLHttpRequest",
-        }
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.get(
-                    BASE_URL_DHW, 
-                    auth=auth, 
-                    params=API_QUERIES_GET_DHW["menu"], 
-                    headers=headers_dhw,
-                    timeout=timeout
-                ) as response:
-                    if response.status == 200:
-                        try:
-                            data = await response.json()
-                            return "hp_id" in data
-                        except Exception:
-                            return False
-                    if response.status == 401:
-                        return False
-            except Exception as e:
-                _LOGGER.debug("DHW Cloud connection failed: %s", e)
-        return False
-
-    if preferred_type == "cloud":
-        ok = await _try_main()
-        return (None, "cloud") if ok else ("invalid_auth", None)
-    if preferred_type == "dhw":
-        ok = await _try_dhw()
-        return (None, "dhw") if ok else ("invalid_auth", None)
-
+    for system_type in candidates:
+        _LOGGER.debug("Validating Kronoterm %s cloud endpoint", system_type)
+        base_url, menu_query, phonegap_version = endpoints[system_type]
+        if await _probe_cloud_endpoint(
+            base_url,
+            menu_query,
+            username,
+            password,
+            phonegap_version,
+        ):
+            return None, system_type
     return "invalid_auth", None
-
 
 
 class KronotermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """
     Handles the configuration flow for the Kronoterm integration.
     """
-    VERSION = 1
+
+    VERSION = 2
 
     def __init__(self) -> None:
         """Initialize the config flow."""
@@ -141,17 +168,19 @@ class KronotermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input: dict | None = None):
         """Handle a flow initialized by the user - choose connection type."""
         _LOGGER.debug("Starting user step in KronotermConfigFlow")
-        
+
         if user_input is not None:
             # Store connection type and move to appropriate step
-            self.connection_type = user_input.get("connection_type", CONNECTION_TYPE_CLOUD)
+            self.connection_type = user_input.get(
+                "connection_type", CONNECTION_TYPE_CLOUD
+            )
             _LOGGER.debug("Connection type selected: %s", self.connection_type)
-            
+
             if self.connection_type == CONNECTION_TYPE_MODBUS:
                 return await self.async_step_modbus_transport()
             else:
                 return await self.async_step_cloud()
-        
+
         # Show connection type selection
         return self.async_show_form(
             step_id="user",
@@ -166,43 +195,45 @@ class KronotermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             sanitized_input = sanitize_user_input(user_input)
             _LOGGER.debug("User input received: %s", sanitized_input)
-            
+
             preferred_type = user_input.get("cloud_type", "auto")
             # Validate credentials
-            error_code, system_type = await validate_credentials(user_input, preferred_type)
-            
+            error_code, system_type = await validate_credentials(
+                user_input, preferred_type
+            )
+
             if not error_code and system_type:
                 # Auth success, add connection type and create entry
                 user_input["connection_type"] = CONNECTION_TYPE_CLOUD
                 user_input["system_type"] = system_type  # Store system type (cloud/dhw)
-                
+
                 title = "Kronoterm Heat Pump (Cloud)"
                 if system_type == "dhw":
                     title = "Kronoterm DHW (Water Cloud)"
-                
-                return self.async_create_entry(
-                    title=title, 
-                    data=user_input
-                )
+
+                return self.async_create_entry(title=title, data=user_input)
             elif error_code:
                 # Auth failed, set error and show form again
                 errors["base"] = error_code
             else:
                 errors["base"] = "unknown"
 
-        cloud_schema = vol.Schema({
-            vol.Required(CONF_USERNAME): str,
-            vol.Required(CONF_PASSWORD): str,
-            vol.Required("cloud_type", default="dhw"): vol.In({
-                "cloud": "Heating heat pump",
-                "dhw": "Sanitary water heat pump",
-            }),
-        })
-        
+        cloud_schema = vol.Schema(
+            {
+                vol.Required(CONF_USERNAME): str,
+                vol.Required(CONF_PASSWORD): str,
+                vol.Required("cloud_type", default="auto"): vol.In(
+                    {
+                        "auto": "Automatic detection",
+                        "cloud": "Heating heat pump",
+                        "dhw": "Sanitary water heat pump",
+                    }
+                ),
+            }
+        )
+
         return self.async_show_form(
-            step_id="cloud", 
-            data_schema=cloud_schema,
-            errors=errors
+            step_id="cloud", data_schema=cloud_schema, errors=errors
         )
 
     async def async_step_modbus_transport(self, user_input: dict | None = None):
@@ -275,24 +306,34 @@ class KronotermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         _LOGGER.info(
             "Starting reconfiguration for entry %s (current type: %s)",
             self.reconfig_entry.entry_id,
-            self.reconfig_entry.data.get("connection_type", "cloud")
+            self.reconfig_entry.data.get("connection_type", "cloud"),
         )
         return await self.async_step_reconfigure_connection_type(user_input)
 
-    async def async_step_reconfigure_connection_type(self, user_input: dict | None = None):
+    async def async_step_reconfigure_connection_type(
+        self, user_input: dict | None = None
+    ):
         """Choose new connection type during reconfiguration."""
         if user_input is not None:
-            self.connection_type = user_input.get("connection_type", CONNECTION_TYPE_CLOUD)
-            _LOGGER.debug("Reconfigure: New connection type selected: %s", self.connection_type)
-            
+            self.connection_type = user_input.get(
+                "connection_type", CONNECTION_TYPE_CLOUD
+            )
+            _LOGGER.debug(
+                "Reconfigure: New connection type selected: %s", self.connection_type
+            )
+
             if self.connection_type == CONNECTION_TYPE_MODBUS:
                 return await self.async_step_reconfigure_modbus_transport()
             else:
                 return await self.async_step_reconfigure_cloud()
-        
-        current_type = self.reconfig_entry.data.get("connection_type", CONNECTION_TYPE_CLOUD)
-        current_type_name = "Modbus" if current_type == CONNECTION_TYPE_MODBUS else "Cloud"
-        
+
+        current_type = self.reconfig_entry.data.get(
+            "connection_type", CONNECTION_TYPE_CLOUD
+        )
+        current_type_name = (
+            "Modbus" if current_type == CONNECTION_TYPE_MODBUS else "Cloud"
+        )
+
         return self.async_show_form(
             step_id="reconfigure_connection_type",
             data_schema=get_connection_type_schema(),
@@ -307,40 +348,38 @@ class KronotermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             sanitized_input = sanitize_user_input(user_input)
             _LOGGER.debug("Reconfigure cloud input: %s", sanitized_input)
-            
+
             preferred_type = user_input.get("cloud_type", "auto")
             # Validate credentials
-            error_code, system_type = await validate_credentials(user_input, preferred_type)
-            
+            error_code, system_type = await validate_credentials(
+                user_input, preferred_type
+            )
+
             if not error_code and system_type:
                 # Auth success, update the entry
                 user_input["connection_type"] = CONNECTION_TYPE_CLOUD
                 user_input["system_type"] = system_type
-                
+
                 title = "Kronoterm Heat Pump (Cloud)"
                 if system_type == "dhw":
                     title = "Kronoterm DHW (Water Cloud)"
-                
+
                 self.hass.config_entries.async_update_entry(
-                    self.reconfig_entry,
-                    data=user_input,
-                    title=title
+                    self.reconfig_entry, data=user_input, title=title
                 )
-                
+
                 # Disable Modbus-only entities, re-enable Cloud entities
                 await disable_mode_specific_entities(
-                    self.hass, 
-                    self.reconfig_entry.entry_id, 
-                    "cloud"
+                    self.hass, self.reconfig_entry.entry_id, "cloud"
                 )
                 await enable_mode_specific_entities(
-                    self.hass,
-                    self.reconfig_entry.entry_id,
-                    "cloud"
+                    self.hass, self.reconfig_entry.entry_id, "cloud"
                 )
-                
+
                 # Reload the entry to apply changes
-                await self.hass.config_entries.async_reload(self.reconfig_entry.entry_id)
+                await self.hass.config_entries.async_reload(
+                    self.reconfig_entry.entry_id
+                )
                 return self.async_abort(reason="reconfigure_successful")
             else:
                 errors["base"] = error_code
@@ -349,23 +388,30 @@ class KronotermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         current_data = self.reconfig_entry.data
         default_username = current_data.get(CONF_USERNAME, "")
         default_password = current_data.get(CONF_PASSWORD, "")
-        
-        cloud_schema = vol.Schema({
-            vol.Required(CONF_USERNAME, default=default_username): str,
-            vol.Required(CONF_PASSWORD, default=default_password): str,
-            vol.Required("cloud_type", default=current_data.get("cloud_type", "dhw")): vol.In({
-                "cloud": "Heating heat pump",
-                "dhw": "Sanitary water heat pump",
-            }),
-        })
-        
-        return self.async_show_form(
-            step_id="reconfigure_cloud",
-            data_schema=cloud_schema,
-            errors=errors
+
+        cloud_schema = vol.Schema(
+            {
+                vol.Required(CONF_USERNAME, default=default_username): str,
+                vol.Required(CONF_PASSWORD, default=default_password): str,
+                vol.Required(
+                    "cloud_type", default=current_data.get("cloud_type", "auto")
+                ): vol.In(
+                    {
+                        "auto": "Automatic detection",
+                        "cloud": "Heating heat pump",
+                        "dhw": "Sanitary water heat pump",
+                    }
+                ),
+            }
         )
 
-    async def async_step_reconfigure_modbus_transport(self, user_input: dict | None = None):
+        return self.async_show_form(
+            step_id="reconfigure_cloud", data_schema=cloud_schema, errors=errors
+        )
+
+    async def async_step_reconfigure_modbus_transport(
+        self, user_input: dict | None = None
+    ):
         """Select Modbus transport during reconfiguration."""
         current_data = self.reconfig_entry.data
         current_transport = current_data.get("transport", MODBUS_TRANSPORT_TCP)
@@ -395,21 +441,19 @@ class KronotermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self.hass.config_entries.async_update_entry(
                     self.reconfig_entry,
                     data=user_input,
-                    title="Kronoterm Heat Pump (Modbus)"
+                    title="Kronoterm Heat Pump (Modbus)",
                 )
 
                 await disable_mode_specific_entities(
-                    self.hass,
-                    self.reconfig_entry.entry_id,
-                    "modbus"
+                    self.hass, self.reconfig_entry.entry_id, "modbus"
                 )
                 await enable_mode_specific_entities(
-                    self.hass,
-                    self.reconfig_entry.entry_id,
-                    "modbus"
+                    self.hass, self.reconfig_entry.entry_id, "modbus"
                 )
 
-                await self.hass.config_entries.async_reload(self.reconfig_entry.entry_id)
+                await self.hass.config_entries.async_reload(
+                    self.reconfig_entry.entry_id
+                )
                 return self.async_abort(reason="reconfigure_successful")
             errors["base"] = error_code
 
@@ -434,21 +478,19 @@ class KronotermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self.hass.config_entries.async_update_entry(
                     self.reconfig_entry,
                     data=user_input,
-                    title="Kronoterm Heat Pump (Modbus)"
+                    title="Kronoterm Heat Pump (Modbus)",
                 )
 
                 await disable_mode_specific_entities(
-                    self.hass,
-                    self.reconfig_entry.entry_id,
-                    "modbus"
+                    self.hass, self.reconfig_entry.entry_id, "modbus"
                 )
                 await enable_mode_specific_entities(
-                    self.hass,
-                    self.reconfig_entry.entry_id,
-                    "modbus"
+                    self.hass, self.reconfig_entry.entry_id, "modbus"
                 )
 
-                await self.hass.config_entries.async_reload(self.reconfig_entry.entry_id)
+                await self.hass.config_entries.async_reload(
+                    self.reconfig_entry.entry_id
+                )
                 return self.async_abort(reason="reconfigure_successful")
             errors["base"] = error_code
 
@@ -462,7 +504,7 @@ class KronotermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(
-        config_entry: config_entries.ConfigEntry
+        config_entry: config_entries.ConfigEntry,
     ) -> "KronotermOptionsFlowHandler":
         """Get the options flow for this integration."""
         return KronotermOptionsFlowHandler()
@@ -483,7 +525,7 @@ class KronotermOptionsFlowHandler(config_entries.OptionsFlow):
             # Validate credentials, as they might have been changed
             # We no longer pass self.hass
             error_code, system_type = await validate_credentials(user_input)
-            
+
             if not error_code and system_type:
                 _LOGGER.debug("Options saved: %s", sanitize_user_input(user_input))
                 # Update system_type in case it changed (e.g. diff cloud endpoint)
@@ -491,32 +533,37 @@ class KronotermOptionsFlowHandler(config_entries.OptionsFlow):
                 # Save the validated input (including any new credentials)
                 return self.async_create_entry(title="", data=user_input)
             elif error_code:
-                _LOGGER.warning("Failed to save options: credentials invalid (%s)", error_code)
+                _LOGGER.warning(
+                    "Failed to save options: credentials invalid (%s)", error_code
+                )
                 errors["base"] = error_code
             else:
                 errors["base"] = "unknown"
-        
+
         # Get current values from options, falling back to data (for credentials)
         # or defaults (for other settings)
         current_options = self.config_entry.options
         current_data = self.config_entry.data
-        
-        username = current_options.get(CONF_USERNAME, current_data.get(CONF_USERNAME, ""))
-        password = current_options.get(CONF_PASSWORD, current_data.get(CONF_PASSWORD, ""))
+
+        username = current_options.get(
+            CONF_USERNAME, current_data.get(CONF_USERNAME, "")
+        )
+        password = current_options.get(
+            CONF_PASSWORD, current_data.get(CONF_PASSWORD, "")
+        )
         scan_interval = current_options.get("scan_interval", DEFAULT_SCAN_INTERVAL)
 
         # Build the schema with current values as defaults
-        options_schema = vol.Schema({
-            vol.Required(CONF_USERNAME, default=username): str,
-            vol.Required(CONF_PASSWORD, default=password): str,
-            vol.Optional(
-                "scan_interval",
-                default=scan_interval
-            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=60)),
-        })
+        options_schema = vol.Schema(
+            {
+                vol.Required(CONF_USERNAME, default=username): str,
+                vol.Required(CONF_PASSWORD, default=password): str,
+                vol.Optional("scan_interval", default=scan_interval): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=60)
+                ),
+            }
+        )
 
         return self.async_show_form(
-            step_id="init", 
-            data_schema=options_schema,
-            errors=errors
+            step_id="init", data_schema=options_schema, errors=errors
         )

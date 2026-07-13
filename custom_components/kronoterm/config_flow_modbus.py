@@ -8,13 +8,10 @@ import logging
 import voluptuous as vol
 from typing import Any, Dict
 
-from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_PORT
-from homeassistant.core import callback
 
 from pymodbus.client import AsyncModbusTcpClient, AsyncModbusSerialClient
 
-from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 

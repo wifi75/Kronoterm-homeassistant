@@ -3,10 +3,8 @@
 Loads the official register mapping from kronoterm.json and provides
 structured access to register definitions.
 """
-import json
 import logging
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 _LOGGER = logging.getLogger(__name__)

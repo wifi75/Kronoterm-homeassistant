@@ -3,12 +3,16 @@ import asyncio
 import aiohttp
 import json
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from aiohttp.client_exceptions import ClientError, ClientResponseError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.core import HomeAssistant
-from homeassistant.components.recorder.statistics import async_import_statistics, statistics_during_period
+from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.components.recorder.statistics import (
+    async_import_statistics,
+    statistics_during_period,
+)
 from homeassistant.components.recorder.models import StatisticMeanType
 from homeassistant.components.recorder import get_instance
 from homeassistant.helpers import entity_registry as er
@@ -29,31 +33,58 @@ from .const import (
     REQUEST_TIMEOUT,
     MAX_RETRY_ATTEMPTS,
     RETRY_DELAY_BASE,
-    SHORTCUT_DELAY_DEFAULT,
-    SHORTCUT_DELAY_STATE,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 
+def _api_flag(value: Any) -> bool:
+    """Convert Kronoterm's numeric/string flags without treating "0" as true."""
+    try:
+        return int(value) == 1
+    except (TypeError, ValueError):
+        return bool(value)
+
+
+def _loop_payload_available(data: Optional[Dict[str, Any]], loop_number: int) -> bool:
+    """Return whether a loop response contains its temperature field."""
+    payload = (data or {}).get(f"loop{loop_number}") or {}
+    temperatures = payload.get("TemperaturesAndConfig") or {}
+    return f"heating_circle_{loop_number}_temp" in temperatures
+
+
 class KronotermBaseCoordinator(DataUpdateCoordinator):
     """Base class for Kronoterm coordinators."""
-    
-    def __init__(self, hass: HomeAssistant, session: aiohttp.ClientSession, config_entry, base_url, api_queries_get, api_queries_set):
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        session: aiohttp.ClientSession,
+        config_entry,
+        base_url,
+        api_queries_get,
+        api_queries_set,
+    ):
         self.hass = hass
         self.session = session
         self.config_entry = config_entry
         self.base_url = base_url
         self.api_queries_get = api_queries_get
         self.api_queries_set = api_queries_set
-        
+
         # Extract credentials
-        self.username = config_entry.options.get("username", config_entry.data.get("username", ""))
-        self.password = config_entry.options.get("password", config_entry.data.get("password", ""))
-        
+        self.username = config_entry.options.get(
+            "username", config_entry.data.get("username", "")
+        )
+        self.password = config_entry.options.get(
+            "password", config_entry.data.get("password", "")
+        )
+
         if not self.username or not self.password:
-            _LOGGER.error("No username/password found in config entry! Authentication will fail.")
-        
+            _LOGGER.error(
+                "No username/password found in config entry! Authentication will fail."
+            )
+
         # Store Basic Auth object to send with EVERY request
         self.auth = aiohttp.BasicAuth(self.username, self.password)
         # Login mode: legacy basic-auth (default) or web session cookie
@@ -65,7 +96,9 @@ class KronotermBaseCoordinator(DataUpdateCoordinator):
             scan_interval_seconds = max(scan_interval_seconds, 30)
             interval = timedelta(seconds=scan_interval_seconds)
         else:
-            scan_interval_minutes = config_entry.options.get("scan_interval", DEFAULT_SCAN_INTERVAL)
+            scan_interval_minutes = config_entry.options.get(
+                "scan_interval", DEFAULT_SCAN_INTERVAL
+            )
             scan_interval_minutes = max(scan_interval_minutes, 1)
             interval = timedelta(minutes=scan_interval_minutes)
 
@@ -107,11 +140,22 @@ class KronotermBaseCoordinator(DataUpdateCoordinator):
                 try:
                     if attempt > 0:
                         delay = 1.5 * attempt  # 1.5s, 3s
-                        _LOGGER.debug("Handshake retry %d/%d after %.1fs delay", attempt + 1, max_retries, delay)
+                        _LOGGER.debug(
+                            "Handshake retry %d/%d after %.1fs delay",
+                            attempt + 1,
+                            max_retries,
+                            delay,
+                        )
                         await asyncio.sleep(delay)
-                    
-                    _LOGGER.debug("Handshake attempt %d/%d: use_auth=%s, base_url=%s, username=%s", 
-                                  attempt + 1, max_retries, use_auth, self.base_url, self.username)
+
+                    _LOGGER.debug(
+                        "Handshake attempt %d/%d: use_auth=%s, base_url=%s, username=%s",
+                        attempt + 1,
+                        max_retries,
+                        use_auth,
+                        self.base_url,
+                        self.username,
+                    )
                     async with self.session.get(
                         self.base_url,
                         auth=self.auth if use_auth else None,
@@ -121,26 +165,48 @@ class KronotermBaseCoordinator(DataUpdateCoordinator):
                     ) as response:
                         _LOGGER.debug("Handshake response: status=%s", response.status)
                         if response.status != 200:
-                            _LOGGER.error("Handshake failed. Status: %s", response.status)
+                            _LOGGER.error(
+                                "Handshake failed. Status: %s", response.status
+                            )
                             continue  # Retry
                         try:
                             data = await response.json()
                             if "hp_id" in data:
-                                _LOGGER.info("Handshake successful (BasicAuth). Session primed for HP ID: %s", data.get("hp_id"))
+                                _LOGGER.info(
+                                    "Handshake successful (BasicAuth). Session primed for HP ID: %s",
+                                    data.get("hp_id"),
+                                )
                                 return True
-                            _LOGGER.warning("Handshake returned 200 but missing 'hp_id'. Response: %s", data)
+                            _LOGGER.warning(
+                                "Handshake returned 200 but missing 'hp_id'. Response: %s",
+                                data,
+                            )
                             continue  # Retry
                         except Exception as json_err:
-                            _LOGGER.warning("Handshake returned 200 but invalid JSON: %s", json_err)
+                            _LOGGER.warning(
+                                "Handshake returned 200 but invalid JSON: %s", json_err
+                            )
                             continue  # Retry
                 except Exception as e:
                     if attempt < max_retries - 1:
-                        _LOGGER.debug("Handshake error (use_auth=%s, attempt %d/%d): %s (%s) - will retry", 
-                                      use_auth, attempt + 1, max_retries, type(e).__name__, e)
+                        _LOGGER.debug(
+                            "Handshake error (use_auth=%s, attempt %d/%d): %s (%s) - will retry",
+                            use_auth,
+                            attempt + 1,
+                            max_retries,
+                            type(e).__name__,
+                            e,
+                        )
                         continue  # Retry
                     else:
-                        _LOGGER.debug("Handshake error (use_auth=%s, attempt %d/%d): %s (%s) - all retries exhausted", 
-                                      use_auth, attempt + 1, max_retries, type(e).__name__, e)
+                        _LOGGER.debug(
+                            "Handshake error (use_auth=%s, attempt %d/%d): %s (%s) - all retries exhausted",
+                            use_auth,
+                            attempt + 1,
+                            max_retries,
+                            type(e).__name__,
+                            e,
+                        )
             return False
 
         async def _web_login() -> bool:
@@ -195,12 +261,17 @@ class KronotermBaseCoordinator(DataUpdateCoordinator):
                 if await _handshake(use_auth=False):
                     return
                 _LOGGER.warning("Web session created but handshake still failed")
-                return
+                self._session_valid = False
+                raise ConfigEntryAuthFailed("Kronoterm cloud session validation failed")
             self._session_valid = False
             _LOGGER.error("Both BasicAuth and web-session login failed")
+            raise ConfigEntryAuthFailed("Invalid Kronoterm cloud credentials")
+        except ConfigEntryAuthFailed:
+            raise
         except Exception as e:
             _LOGGER.error("Error during handshake: %s", e)
             self._session_valid = False
+            raise
 
     def _get_headers(self) -> Dict[str, str]:
         """Generate headers. Overridden by subclasses."""
@@ -210,7 +281,13 @@ class KronotermBaseCoordinator(DataUpdateCoordinator):
         """Fetch system info. Overridden by subclasses."""
         pass
 
-    async def _request_with_retries(self, method: str, query_params: Dict[str, str], form_data=None, attempts=MAX_RETRY_ATTEMPTS) -> Optional[Dict[str, Any]]:
+    async def _request_with_retries(
+        self,
+        method: str,
+        query_params: Dict[str, str],
+        form_data=None,
+        attempts=MAX_RETRY_ATTEMPTS,
+    ) -> Optional[Dict[str, Any]]:
         """HTTP request with retries."""
         for attempt_idx in range(attempts):
             try:
@@ -220,27 +297,44 @@ class KronotermBaseCoordinator(DataUpdateCoordinator):
 
                 if method.upper() == "GET":
                     async with self.session.get(
-                        self.base_url, auth=self.auth if not self._use_web_session else None, params=query_params,
-                        headers=headers, cookies=page_cookies, timeout=timeout
+                        self.base_url,
+                        auth=self.auth if not self._use_web_session else None,
+                        params=query_params,
+                        headers=headers,
+                        cookies=page_cookies,
+                        timeout=timeout,
                     ) as response:
-                        return await self._process_response(response, "GET", query_params)
+                        return await self._process_response(
+                            response, "GET", query_params
+                        )
                 else:
                     async with self.session.post(
-                        self.base_url, auth=self.auth if not self._use_web_session else None, params=query_params, data=form_data,
-                        headers=headers, cookies=page_cookies, timeout=timeout
+                        self.base_url,
+                        auth=self.auth if not self._use_web_session else None,
+                        params=query_params,
+                        data=form_data,
+                        headers=headers,
+                        cookies=page_cookies,
+                        timeout=timeout,
                     ) as response:
-                        return await self._process_response(response, "POST", query_params)
-                        
+                        return await self._process_response(
+                            response, "POST", query_params
+                        )
+
             except (ClientResponseError, ClientError) as e:
-                _LOGGER.warning("%s attempt %d failed: %s", method.upper(), attempt_idx + 1, e)
+                _LOGGER.warning(
+                    "%s attempt %d failed: %s", method.upper(), attempt_idx + 1, e
+                )
                 if isinstance(e, ClientResponseError) and e.status in (401, 403):
                     _LOGGER.warning("Auth failure. Re-initializing connection.")
                     await self._perform_login()
                     continue
                 if attempt_idx < attempts - 1:
-                    await asyncio.sleep(RETRY_DELAY_BASE ** attempt_idx)
+                    await asyncio.sleep(RETRY_DELAY_BASE**attempt_idx)
                 else:
-                    raise UpdateFailed(f"Max {method} retries reached for {query_params}: {e}")
+                    raise UpdateFailed(
+                        f"Max {method} retries reached for {query_params}: {e}"
+                    )
         return None
 
     def _get_page_cookies(self, query_params: Dict[str, str]) -> Dict[str, str]:
@@ -251,23 +345,39 @@ class KronotermBaseCoordinator(DataUpdateCoordinator):
             cookies["CurrentSubPage"] = query_params["Subpage"]
         return cookies
 
-    async def _process_response(self, response, method, query_params) -> Optional[Dict[str, Any]]:
+    async def _process_response(
+        self, response, method, query_params
+    ) -> Optional[Dict[str, Any]]:
         if response.status == 401:
-             raise ClientResponseError(response.request_info, response.history, status=401, message="Unauthorized")
+            raise ClientResponseError(
+                response.request_info,
+                response.history,
+                status=401,
+                message="Unauthorized",
+            )
         if response.status != 200:
             raise UpdateFailed(f"HTTP {response.status} for {method} {query_params}")
-        
+
         raw_text = await response.text()
         _LOGGER.debug("Raw response %s %s: %s", method, query_params, raw_text)
-        
+
         try:
             data = json.loads(raw_text)
-            if data.get("result") == "action" and "window.location" in data.get("js", ""):
-                 raise ClientResponseError(response.request_info, response.history, status=401, message="Session Redirect")
+            if data.get("result") == "action" and "window.location" in data.get(
+                "js", ""
+            ):
+                raise ClientResponseError(
+                    response.request_info,
+                    response.history,
+                    status=401,
+                    message="Session Redirect",
+                )
             return data
         except json.JSONDecodeError as e:
-            raise UpdateFailed(f"Invalid JSON response for {method} {query_params}") from e
-            
+            raise UpdateFailed(
+                f"Invalid JSON response for {method} {query_params}"
+            ) from e
+
     async def _async_update_data(self) -> Dict[str, Any]:
         """Main update loop. Overridden by subclasses."""
         raise NotImplementedError
@@ -277,7 +387,9 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
     """Coordinator for standard Heat Pumps (Main Cloud)."""
 
     def __init__(self, hass, session, config_entry):
-        super().__init__(hass, session, config_entry, BASE_URL, API_QUERIES_GET, API_QUERIES_SET)
+        super().__init__(
+            hass, session, config_entry, BASE_URL, API_QUERIES_GET, API_QUERIES_SET
+        )
         _LOGGER.info("Initializing Kronoterm Main Coordinator")
         self._last_stats_sync_date = None
         self._energy_statistic_ids = None
@@ -324,7 +436,7 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
             }
         return {
             "phonegap": "1.5.0",
-            "Accept": "*/*", 
+            "Accept": "*/*",
             "Accept-Language": "en-US,en;q=0.9",
             "X-Requested-With": "XMLHttpRequest",
             "Referer": self.base_url,
@@ -334,24 +446,38 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
 
     async def _async_fetch_info_once(self) -> None:
         try:
-            info_data = await self._request_with_retries("GET", self.api_queries_get["info"])
+            info_data = await self._request_with_retries(
+                "GET", self.api_queries_get["info"]
+            )
             if info_data is None:
                 raise UpdateFailed("No 'info' data returned from API")
             if not self.data:
                 self.data = {}
             self.data["info"] = info_data
-            
+
             self._parse_device_info(info_data)
-            
+
             temp_config = info_data.get("TemperaturesAndConfig", {})
-            self.pool_installed = bool(temp_config.get("pool_active", 0))
+            self.pool_installed = _api_flag(temp_config.get("pool_active", 0))
             self.reservoir_installed = True
-            self.alt_source_installed = bool(temp_config.get("alt_source_temp_visible", 0))
-            self.loop1_installed = bool(temp_config.get("circle_1_installed", 0))
-            self.loop2_installed = bool(temp_config.get("circle_2_installed", 0))
-            self.loop3_installed = bool(temp_config.get("circle_3_installed", 0))
-            self.loop4_installed = bool(temp_config.get("circle_4_installed", 0))
-            self.tap_water_installed = bool(temp_config.get("tap_water_installed", 0))
+            self.alt_source_installed = _api_flag(
+                temp_config.get("alt_source_temp_visible", 0)
+            )
+            self.loop1_installed = _api_flag(
+                temp_config.get("circle_1_installed", 0)
+            ) or _loop_payload_available(self.data, 1)
+            self.loop2_installed = _api_flag(
+                temp_config.get("circle_2_installed", 0)
+            ) or _loop_payload_available(self.data, 2)
+            self.loop3_installed = _api_flag(
+                temp_config.get("circle_3_installed", 0)
+            ) or _loop_payload_available(self.data, 3)
+            self.loop4_installed = _api_flag(
+                temp_config.get("circle_4_installed", 0)
+            ) or _loop_payload_available(self.data, 4)
+            self.tap_water_installed = _api_flag(
+                temp_config.get("tap_water_installed", 0)
+            )
         except Exception as e:
             _LOGGER.error("Failed to fetch 'info' data: %s", e)
             raise
@@ -376,10 +502,12 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
             results = await asyncio.gather(
                 self._request_with_retries("GET", self.api_queries_get["main"]),
                 self._request_with_retries("GET", self.api_queries_get["shortcuts"]),
-                return_exceptions=True
+                return_exceptions=True,
             )
             data["main"] = results[0] if not isinstance(results[0], Exception) else None
-            data["shortcuts"] = results[1] if not isinstance(results[1], Exception) else None
+            data["shortcuts"] = (
+                results[1] if not isinstance(results[1], Exception) else None
+            )
 
             # 2. Loops/DHW/Reservoir
             try:
@@ -387,11 +515,17 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
                     self._request_with_retries("GET", self.api_queries_get["loop1"]),
                     self._request_with_retries("GET", self.api_queries_get["loop2"]),
                     self._request_with_retries("GET", self.api_queries_get["dhw"]),
-                    self._request_with_retries("GET", self.api_queries_get["reservoir"]),
+                    self._request_with_retries(
+                        "GET", self.api_queries_get["reservoir"]
+                    ),
                     self._request_with_retries("GET", self.api_queries_get["loop3"]),
                     self._request_with_retries("GET", self.api_queries_get["loop4"]),
-                    self._request_with_retries("GET", self.api_queries_get["main_settings"]),
-                    self._request_with_retries("GET", self.api_queries_get["system_data"]),
+                    self._request_with_retries(
+                        "GET", self.api_queries_get["main_settings"]
+                    ),
+                    self._request_with_retries(
+                        "GET", self.api_queries_get["system_data"]
+                    ),
                 )
                 data["loop1"] = loop_results[0]
                 data["loop2"] = loop_results[1]
@@ -415,15 +549,19 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
                         if "trend_consumption" not in consumption:
                             _LOGGER.debug("Consumption raw payload: %s", consumption)
                     else:
-                        _LOGGER.debug("Consumption payload type=%s value=%s", type(consumption), consumption)
+                        _LOGGER.debug(
+                            "Consumption payload type=%s value=%s",
+                            type(consumption),
+                            consumption,
+                        )
                 except Exception as log_err:
                     _LOGGER.debug("Failed to log consumption data: %s", log_err)
             except Exception as e:
                 _LOGGER.error("Error fetching loops: %s", e)
-            
+
             if self.data and "info" in self.data:
                 data["info"] = self.data["info"]
-                
+
             # Sync previous day's finalized energy statistics once per day
             await self._sync_previous_day_statistics()
             return data
@@ -431,26 +569,45 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
             raise UpdateFailed(f"Main update failed: {err}") from err
 
     # Setter methods for Main Cloud (kept from original class)
-    async def _async_set_page_parameter(self, page: int, param_name: str, param_value: str) -> bool:
+    async def _async_set_page_parameter(
+        self, page: int, param_name: str, param_value: str
+    ) -> bool:
         query_key = PAGE_TO_SET_QUERY_KEY.get(page)
-        if not query_key: return False
-        form_data = [("param_name", param_name), ("param_value", param_value), ("page", str(page))]
+        if not query_key:
+            return False
+        form_data = [
+            ("param_name", param_name),
+            ("param_value", param_value),
+            ("page", str(page)),
+        ]
         return await self._send_set_request(query_key, form_data)
 
     async def _async_set_shortcut(self, param_name: str, enable: bool) -> bool:
-        form_data = [("param_name", param_name), ("param_value", "1" if enable else "0"), ("page", "-1")]
+        form_data = [
+            ("param_name", param_name),
+            ("param_value", "1" if enable else "0"),
+            ("page", "-1"),
+        ]
         return await self._send_set_request("switch", form_data)
 
     async def _send_set_request(self, query_key, form_data):
         try:
-            _LOGGER.info("Sending SET request: query_key=%s, form_data=%s, URL params=%s", 
-                         query_key, dict(form_data), self.api_queries_set[query_key])
-            result = await self._request_with_retries("POST", self.api_queries_set[query_key], form_data)
+            _LOGGER.info(
+                "Sending SET request: query_key=%s, form_data=%s, URL params=%s",
+                query_key,
+                dict(form_data),
+                self.api_queries_set[query_key],
+            )
+            result = await self._request_with_retries(
+                "POST", self.api_queries_set[query_key], form_data
+            )
             _LOGGER.info("SET request response: %s", result)
             if result and result.get("result") == "success":
                 await self.async_request_refresh()
                 return True
-            _LOGGER.warning("SET request failed or returned non-success result: %s", result)
+            _LOGGER.warning(
+                "SET request failed or returned non-success result: %s", result
+            )
             return False
         except UpdateFailed as e:
             _LOGGER.error("SET request raised UpdateFailed: %s", e)
@@ -458,14 +615,22 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
 
     # (Add other specific setters here if needed, keeping it minimal for now)
     async def async_set_temperature(self, page: int, new_temp: float) -> bool:
-        return await self._async_set_page_parameter(page, API_PARAM_KEYS["TEMP"], str(round(new_temp, 1)))
+        return await self._async_set_page_parameter(
+            page, API_PARAM_KEYS["TEMP"], str(round(new_temp, 1))
+        )
 
-    async def async_set_offset(self, page: int, param_name: str, new_value: float) -> bool:
+    async def async_set_offset(
+        self, page: int, param_name: str, new_value: float
+    ) -> bool:
         """Set eco/comfort offsets for cloud loops/DHW."""
-        return await self._async_set_page_parameter(page, param_name, str(round(new_value, 1)))
+        return await self._async_set_page_parameter(
+            page, param_name, str(round(new_value, 1))
+        )
 
     async def async_set_loop_mode_by_page(self, page: int, new_mode: int) -> bool:
-        return await self._async_set_page_parameter(page, API_PARAM_KEYS["MODE"], str(new_mode))
+        return await self._async_set_page_parameter(
+            page, API_PARAM_KEYS["MODE"], str(new_mode)
+        )
 
     async def async_set_main_mode(self, new_mode: int) -> bool:
         """Set operational mode (auto/comfort/eco) via main_settings."""
@@ -488,7 +653,9 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
             ("page", "-1"),
         ]
         result = await self._send_set_request("main_settings", form_data)
-        _LOGGER.info("Main temperature offset change %s", "succeeded" if result else "failed")
+        _LOGGER.info(
+            "Main temperature offset change %s", "succeeded" if result else "failed"
+        )
         return result
 
     async def async_set_heatpump_state(self, turn_on: bool) -> bool:
@@ -513,7 +680,9 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
 
     async def async_set_additional_source(self, enable: bool) -> bool:
         """Enable/disable additional source via shortcuts."""
-        return await self._async_set_shortcut(API_PARAM_KEYS["ADDITIONAL_SOURCE"], enable)
+        return await self._async_set_shortcut(
+            API_PARAM_KEYS["ADDITIONAL_SOURCE"], enable
+        )
 
     async def _sync_previous_day_statistics(self) -> None:
         """Re-import finalized daily energy statistics for yesterday after midnight."""
@@ -526,11 +695,15 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
             _LOGGER.debug("No consumption data for previous day; skipping stats sync")
             return
 
-        await self._import_energy_statistics_for_date(today - timedelta(days=1), consumption)
+        await self._import_energy_statistics_for_date(
+            today - timedelta(days=1), consumption
+        )
         self._last_stats_sync_date = today
         _LOGGER.info("Re-imported previous day energy statistics")
 
-    async def _fetch_consumption_for_date(self, target_date: datetime.date) -> Optional[Dict[str, Any]]:
+    async def _fetch_consumption_for_date(
+        self, target_date: datetime.date
+    ) -> Optional[Dict[str, Any]]:
         """Fetch consumption for a specific date."""
         form = CONSUMPTION_FORM_BASE + [
             ("year", str(target_date.year)),
@@ -546,9 +719,13 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
             _LOGGER.debug("Consumption request failed for %s: %s", target_date, err)
             return None
 
-    async def _import_energy_statistics_for_date(self, target_date: datetime.date, consumption: Dict[str, Any]) -> None:
+    async def _import_energy_statistics_for_date(
+        self, target_date: datetime.date, consumption: Dict[str, Any]
+    ) -> None:
         if isinstance(target_date, (int, float)):
-            target_date = dt_util.as_local(dt_util.utc_from_timestamp(target_date)).date()
+            target_date = dt_util.as_local(
+                dt_util.utc_from_timestamp(target_date)
+            ).date()
         elif isinstance(target_date, datetime):
             target_date = target_date.date()
 
@@ -591,12 +768,14 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
                 tzinfo=dt_util.DEFAULT_TIME_ZONE,
             )
             start = dt_util.as_utc(start_local)
-            stats = [{
-                "start": start,
-                "state": running_sum,
-                "sum": running_sum,
-                "last_reset": None,
-            }]
+            stats = [
+                {
+                    "start": start,
+                    "state": running_sum,
+                    "sum": running_sum,
+                    "last_reset": None,
+                }
+            ]
 
             metadata = {
                 "statistic_id": entity_id,
@@ -617,12 +796,14 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
 
         keys = ["CompHeating", "CompTapWater", "CPLoops", "CPAddSource"]
         key_to_unique = {
-            "CompHeating": f"{DOMAIN}_daily_CompHeating",
-            "CompTapWater": f"{DOMAIN}_daily_CompTapWater",
-            "CPLoops": f"{DOMAIN}_daily_CPLoops",
-            "CPAddSource": f"{DOMAIN}_daily_CPAddSource",
+            "CompHeating": f"{self.config_entry.entry_id}_{DOMAIN}_daily_CompHeating",
+            "CompTapWater": f"{self.config_entry.entry_id}_{DOMAIN}_daily_CompTapWater",
+            "CPLoops": f"{self.config_entry.entry_id}_{DOMAIN}_daily_CPLoops",
+            "CPAddSource": f"{self.config_entry.entry_id}_{DOMAIN}_daily_CPAddSource",
         }
-        combined_unique = f"{DOMAIN}_daily_combined_{'_'.join(keys)}"
+        combined_unique = (
+            f"{self.config_entry.entry_id}_{DOMAIN}_daily_combined_{'_'.join(keys)}"
+        )
 
         registry = er.async_get(self.hass)
         result = {}
@@ -704,7 +885,8 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
                             if key == "combined":
                                 value = sum(
                                     series_map.get(k, [0.0] * length)[offset]
-                                    if offset < len(series_map.get(k, [])) else 0.0
+                                    if offset < len(series_map.get(k, []))
+                                    else 0.0
                                     for k in keys
                                 )
                             else:
@@ -715,18 +897,31 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
 
                             day_values[day][entity_id] = value
 
-                    _LOGGER.info("Consumption window: %s → %s (len=%s)", window_start, window_start + timedelta(days=length - 1), length)
+                    _LOGGER.info(
+                        "Consumption window: %s → %s (len=%s)",
+                        window_start,
+                        window_start + timedelta(days=length - 1),
+                        length,
+                    )
                     last_imported = current
                     empty_days = 0
                     current = window_start - timedelta(days=1)
                     max_days -= length
                     continue
             else:
-                _LOGGER.debug("No consumption data for %s (empty streak %s)", current, empty_days + 1)
+                _LOGGER.debug(
+                    "No consumption data for %s (empty streak %s)",
+                    current,
+                    empty_days + 1,
+                )
                 empty_days += 1
 
             if empty_days >= 7:
-                _LOGGER.info("Stopping backward scan after %s consecutive empty days. Last imported: %s", empty_days, last_imported)
+                _LOGGER.info(
+                    "Stopping backward scan after %s consecutive empty days. Last imported: %s",
+                    empty_days,
+                    last_imported,
+                )
                 break
 
             current -= timedelta(days=1)
@@ -735,7 +930,11 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
         running_totals = {k: 0.0 for k in entity_ids.values()}
         today = dt_util.now().date()
         cutoff = today - timedelta(days=1)
-        _LOGGER.info("Importing up to day before yesterday. Today=%s, max_day=%s", today, max(day_values.keys()) if day_values else None)
+        _LOGGER.info(
+            "Importing up to day before yesterday. Today=%s, max_day=%s",
+            today,
+            max(day_values.keys()) if day_values else None,
+        )
         for day in sorted(day_values.keys()):
             if day >= cutoff:
                 continue
@@ -757,27 +956,38 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
                     "has_mean": False,
                     "mean_type": StatisticMeanType.NONE,
                 }
-                stats = [{
-                    "start": start,
-                    "state": running_totals[entity_id],
-                    "sum": running_totals[entity_id],
-                    "last_reset": None,
-                }]
+                stats = [
+                    {
+                        "start": start,
+                        "state": running_totals[entity_id],
+                        "sum": running_totals[entity_id],
+                        "last_reset": None,
+                    }
+                ]
                 async_import_statistics(self.hass, metadata, stats)
 
         self._last_stats_sync_date = dt_util.now().date()
-        _LOGGER.info("Re-imported energy statistics for all available history (backward scan)")
+        _LOGGER.info(
+            "Re-imported energy statistics for all available history (backward scan)"
+        )
 
 
 class KronotermDHWCoordinator(KronotermBaseCoordinator):
     """Coordinator for DHW Heat Pumps (Water Cloud)."""
 
     def __init__(self, hass, session, config_entry):
-        super().__init__(hass, session, config_entry, BASE_URL_DHW, API_QUERIES_GET_DHW, API_QUERIES_SET_DHW)
+        super().__init__(
+            hass,
+            session,
+            config_entry,
+            BASE_URL_DHW,
+            API_QUERIES_GET_DHW,
+            API_QUERIES_SET_DHW,
+        )
         _LOGGER.info("Initializing Kronoterm DHW Coordinator")
         self.system_type = "dhw"
         # Ensure we don't accidentally check flags that don't exist
-        self.tap_water_installed = True 
+        self.tap_water_installed = True
 
     def _get_headers(self) -> Dict[str, str]:
         if getattr(self, "_use_web_session", False):
@@ -792,7 +1002,7 @@ class KronotermDHWCoordinator(KronotermBaseCoordinator):
             }
         return {
             "phonegap": "1.0.7",
-            "Accept": "*/*", 
+            "Accept": "*/*",
             "Accept-Language": "en-US,en;q=0.9",
             "X-Requested-With": "XMLHttpRequest",
             "Referer": self.base_url,
@@ -801,7 +1011,7 @@ class KronotermDHWCoordinator(KronotermBaseCoordinator):
         }
 
     async def _async_fetch_info_once(self) -> None:
-        # DHW doesn't have an "info" page like Main. 
+        # DHW doesn't have an "info" page like Main.
         # We fetch "main" to get basic info if needed.
         # Just set device info manually for now based on what we know.
         self.shared_device_info = {
@@ -822,16 +1032,29 @@ class KronotermDHWCoordinator(KronotermBaseCoordinator):
             results = await asyncio.gather(
                 self._request_with_retries("GET", self.api_queries_get["main"]),
                 self._request_with_retries("GET", self.api_queries_get["shortcuts"]),
-                return_exceptions=True
+                return_exceptions=True,
             )
-            
+
             data["main"] = results[0] if not isinstance(results[0], Exception) else None
-            data["shortcuts"] = results[1] if not isinstance(results[1], Exception) else None
-            
+            data["shortcuts"] = (
+                results[1] if not isinstance(results[1], Exception) else None
+            )
+
             # Nullify others to be safe
-            for key in ["loop1", "loop2", "dhw", "reservoir", "loop3", "loop4", "main_settings", "system_data", "info", "consumption"]:
+            for key in [
+                "loop1",
+                "loop2",
+                "dhw",
+                "reservoir",
+                "loop3",
+                "loop4",
+                "main_settings",
+                "system_data",
+                "info",
+                "consumption",
+            ]:
                 data[key] = None
-                
+
             return data
         except Exception as err:
             raise UpdateFailed(f"DHW update failed: {err}") from err
@@ -869,7 +1092,9 @@ class KronotermDHWCoordinator(KronotermBaseCoordinator):
             )
         except Exception:
             days = 0
-        return await self._send_shortcut("shrtct_holiday", enable, additional_value=days)
+        return await self._send_shortcut(
+            "shrtct_holiday", enable, additional_value=days
+        )
 
     async def async_set_dhw_eco_offset(self, value: float) -> bool:
         form_data = [
@@ -895,7 +1120,9 @@ class KronotermDHWCoordinator(KronotermBaseCoordinator):
         ]
         return await self._send_set_request("main", form_data)
 
-    async def _send_shortcut(self, param_name: str, enable: bool, additional_value: Optional[int] = None) -> bool:
+    async def _send_shortcut(
+        self, param_name: str, enable: bool, additional_value: Optional[int] = None
+    ) -> bool:
         form_data = [
             ("param_name", param_name),
             ("param_value", "1" if enable else "0"),
@@ -907,13 +1134,16 @@ class KronotermDHWCoordinator(KronotermBaseCoordinator):
 
     async def _send_set_request(self, query_key, form_data):
         try:
-            result = await self._request_with_retries("POST", self.api_queries_set[query_key], form_data)
+            result = await self._request_with_retries(
+                "POST", self.api_queries_set[query_key], form_data
+            )
             if result and result.get("result") == "success":
                 await self.async_request_refresh()
                 return True
             return False
         except UpdateFailed:
             return False
+
 
 # Compatibility alias for existing code
 KronotermCoordinator = KronotermMainCoordinator

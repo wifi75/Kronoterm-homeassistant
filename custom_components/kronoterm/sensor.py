@@ -6,7 +6,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, CoordinatorEntity
+from homeassistant.helpers.update_coordinator import (
+    DataUpdateCoordinator,
+    CoordinatorEntity,
+)
 from homeassistant.components.sensor import (
     SensorEntity,
     SensorDeviceClass,
@@ -21,11 +24,9 @@ from .const import (
     DOMAIN,
     SENSOR_DEFINITIONS,
     ENUM_SENSOR_DEFINITIONS,
-    SensorDefinition,
-    EnumSensorDefinition,
 )
 from .entities import KronotermModbusBase
-from .coordinator import KronotermMainCoordinator, KronotermDHWCoordinator # Add this import
+from .coordinator import KronotermDHWCoordinator  # Add this import
 
 # Import RegisterDefinition for type hints (may not exist if register_map not loaded)
 try:
@@ -40,9 +41,10 @@ _LOGGER = logging.getLogger(__name__)
 # SENSOR CLASSES
 # -----------------------------------------------------------------------------
 
+
 class KronotermModbusRegSensor(KronotermModbusBase, SensorEntity):
     """Numeric Modbus register sensor."""
-    
+
     # Mapping of setpoint registers to their operation mode registers
     # These sensors show 5000 (500°C) when their zone is OFF
     SETPOINT_TO_OPERATION_MODE = {
@@ -110,41 +112,48 @@ class KronotermModbusRegSensor(KronotermModbusBase, SensorEntity):
     @property
     def native_value(self) -> Optional[float]:
         """Return sensor value, checking operation mode for setpoint sensors.
-        
+
         Setpoint sensors show 5000 (500°C after scaling) when their zone is OFF.
         Uses dual-check approach:
         1. Check operation_mode = 0 (proper OFF state)
         2. Filter values >= 500.0 (catches installation-specific dependencies)
-        
+
         Note: Value filter ONLY applies to setpoint sensors (temperatures).
         Power/energy sensors can legitimately exceed 500.
         """
         # Check if this is a setpoint sensor that depends on operation mode
         if self._address in self.SETPOINT_TO_OPERATION_MODE:
             operation_mode_address = self.SETPOINT_TO_OPERATION_MODE[self._address]
-            
+
             # Get operation mode value
-            modbus_list = self.coordinator.data.get("main", {}).get("ModbusReg", []) if self.coordinator.data else []
+            modbus_list = (
+                self.coordinator.data.get("main", {}).get("ModbusReg", [])
+                if self.coordinator.data
+                else []
+            )
             operation_mode = None
             for reg in modbus_list:
                 if reg.get("address") == operation_mode_address:
                     operation_mode = reg.get("value")
                     break
-            
+
             # Check 1: If zone is OFF (operation_mode = 0), return None
             if operation_mode == 0:
                 return None
-            
+
             # Check 2: Fallback filter for dependency-based OFF (ONLY for setpoint sensors)
             # Example: Reservoir shows 500 when Loop 1 is OFF (installation-specific)
             value = self._compute_value()
             if value is not None and value >= 500.0:
                 return None
-            
+
             return value
-        
+
         # Current heating/cooling power: derive from capacity/COP for CLOUD only
-        if self._address == 2129 and getattr(self.coordinator, 'system_type', None) == 'cloud':
+        if (
+            self._address == 2129
+            and getattr(self.coordinator, "system_type", None) == "cloud"
+        ):
             capacity = self._get_modbus_value_for(2329)
             cop_raw = self._get_modbus_value_for(2371)
             if capacity is not None and cop_raw is not None:
@@ -224,7 +233,9 @@ class KronotermJsonSensor(CoordinatorEntity, SensorEntity):
         self._device_info = device_info
         self._data_path = data_path
         self._attr_translation_key = translation_key
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{DOMAIN}_{unique_id_suffix}"
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.entry_id}_{DOMAIN}_{unique_id_suffix}"
+        )
         self._attr_native_unit_of_measurement = unit
         self._attr_icon = icon
         self._attr_device_class = device_class
@@ -274,7 +285,9 @@ class KronotermJsonEnumSensor(CoordinatorEntity, SensorEntity):
         self._data_path = data_path
         self._options = options
         self._attr_translation_key = translation_key
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{DOMAIN}_{unique_id_suffix}"
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.entry_id}_{DOMAIN}_{unique_id_suffix}"
+        )
         self._attr_icon = icon
         self._attr_options = list(self._options.values())
 
@@ -308,7 +321,9 @@ class KronotermCalculatedPowerFromCapacitySensor(CoordinatorEntity, SensorEntity
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:flash"
 
-    def __init__(self, coordinator: DataUpdateCoordinator, device_info: Dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: DataUpdateCoordinator, device_info: Dict[str, Any]
+    ) -> None:
         super().__init__(coordinator)
         self._device_info = device_info
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{DOMAIN}_calculated_power_capacity_cop"
@@ -346,6 +361,7 @@ class KronotermCalculatedPowerFromCapacitySensor(CoordinatorEntity, SensorEntity
 # SETUP ENTRY
 # -----------------------------------------------------------------------------
 
+
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -359,11 +375,16 @@ async def async_setup_entry(
     device_info = coordinator.shared_device_info
 
     # Use instance checks instead of hasattr or string checks if possible, or robust checks
-    is_dhw = isinstance(coordinator, KronotermDHWCoordinator) or getattr(coordinator, "system_type", None) == "dhw"
-    
+    is_dhw = (
+        isinstance(coordinator, KronotermDHWCoordinator)
+        or getattr(coordinator, "system_type", None) == "dhw"
+    )
+
     # Check if this is a Modbus coordinator with register map
-    use_register_map = hasattr(coordinator, "register_map") and coordinator.register_map is not None
-    
+    use_register_map = (
+        hasattr(coordinator, "register_map") and coordinator.register_map is not None
+    )
+
     if use_register_map:
         _LOGGER.info("Using JSON register map for Modbus TCP entities")
         return await _async_setup_modbus_entities(
@@ -380,6 +401,7 @@ async def async_setup_entry(
             coordinator, device_info, async_add_entities
         )
 
+
 async def _async_setup_dhw_entities(
     coordinator: DataUpdateCoordinator,
     device_info: Dict[str, Any],
@@ -387,7 +409,7 @@ async def _async_setup_dhw_entities(
 ) -> bool:
     """Setup entities for DHW Cloud API."""
     entities = []
-    
+
     # boiler_temp (Current Temperature from GlobalOverview)
     entities.append(
         KronotermJsonSensor(
@@ -529,7 +551,6 @@ async def _async_setup_dhw_entities(
     return True
 
 
-
 async def _async_setup_cloud_entities(
     coordinator: DataUpdateCoordinator,
     device_info: Dict[str, Any],
@@ -543,7 +564,10 @@ async def _async_setup_cloud_entities(
         # Skip optional features
         if sensor_def.key == "pool_temperature" and not coordinator.pool_installed:
             continue
-        if sensor_def.key == "alternative_source_temperature" and not coordinator.alt_source_installed:
+        if (
+            sensor_def.key == "alternative_source_temperature"
+            and not coordinator.alt_source_installed
+        ):
             continue
 
         # Skip sensors if loop not installed
@@ -572,7 +596,11 @@ async def _async_setup_cloud_entities(
                 else:
                     raw_value = None
 
-                if raw_value is None or raw_value == "" or str(raw_value).strip() == "0":
+                if (
+                    raw_value is None
+                    or raw_value == ""
+                    or str(raw_value).strip() == "0"
+                ):
                     _LOGGER.debug(
                         "Skipping thermostat sensor %s (addr %s) due to value=%s",
                         sensor_def.key,
@@ -589,7 +617,6 @@ async def _async_setup_cloud_entities(
                 )
                 continue
 
-
         ent = KronotermModbusRegSensor(
             coordinator=coordinator,
             address=sensor_def.address,
@@ -600,14 +627,15 @@ async def _async_setup_cloud_entities(
             icon=sensor_def.icon,
         )
         # Prefer clean display for setpoints
-        if sensor_def.key.endswith("_setpoint") or sensor_def.key.endswith("_current_setpoint"):
+        if sensor_def.key.endswith("_setpoint") or sensor_def.key.endswith(
+            "_current_setpoint"
+        ):
             ent._attr_suggested_display_precision = 1
         if sensor_def.key in ("cop_value", "scop_value"):
             ent._attr_state_class = SensorStateClass.MEASUREMENT
 
         if sensor_def.diagnostic:
             ent._attr_entity_category = EntityCategory.DIAGNOSTIC
-            
 
         # Apply device/state classes
         if sensor_def.unit == "°C":
@@ -643,7 +671,7 @@ async def _async_setup_cloud_entities(
         )
         if enum_def.diagnostic:
             ent._attr_entity_category = EntityCategory.DIAGNOSTIC
-            
+
         enum_entities.append(ent)
 
     # JSON loop sensors (loop temperature readings)
@@ -654,7 +682,7 @@ async def _async_setup_cloud_entities(
                 KronotermJsonSensor(
                     coordinator,
                     device_info,
-                    f"loop_{i}_temp",
+                    f"loop_{i}_temperature",
                     f"loop_{i}_temperature",
                     [f"loop{i}", "TemperaturesAndConfig", f"heating_circle_{i}_temp"],
                     unit="°C",
@@ -663,16 +691,16 @@ async def _async_setup_cloud_entities(
                     state_class=SensorStateClass.MEASUREMENT,
                 )
             )
-    
+
     # Inlet Temperature Sensors
     sys_data = coordinator.data.get("system_data", {})
     sys_data_list = sys_data.get("SystemData", []) if sys_data else []
 
-    for i in range(1, 5): # Check Loops 1-4
+    for i in range(1, 5):  # Check Loops 1-4
         # Ensure we have data for this index
         if i < len(sys_data_list):
             loop_data = sys_data_list[i]
-            
+
             # Verify this is actually the correct circle_id (safety check)
             if loop_data.get("circle_id") == i:
                 # Check if 'inlet_temp' exists in the JSON for this loop
@@ -682,8 +710,8 @@ async def _async_setup_cloud_entities(
                         KronotermJsonSensor(
                             coordinator,
                             device_info,
-                            f"loop_{i}_inlet_temp", # Unique suffix
-                            f"loop_{i}_inlet_temperature", # Translation key
+                            f"loop_{i}_inlet_temp",  # Unique suffix
+                            f"loop_{i}_inlet_temperature",  # Translation key
                             # Path: ["system_data", "SystemData", index(int), "inlet_temp"]
                             ["system_data", "SystemData", i, "inlet_temp"],
                             unit="°C",
@@ -695,10 +723,18 @@ async def _async_setup_cloud_entities(
 
     # Energy sensors
     energy_sensors = [
-        KronotermDailyEnergySensor(coordinator, "energy_heating", device_info, "CompHeating"),
-        KronotermDailyEnergySensor(coordinator, "energy_dhw", device_info, "CompTapWater"),
-        KronotermDailyEnergySensor(coordinator, "energy_circulation", device_info, "CPLoops"),
-        KronotermDailyEnergySensor(coordinator, "energy_heater", device_info, "CPAddSource"),
+        KronotermDailyEnergySensor(
+            coordinator, "energy_heating", device_info, "CompHeating"
+        ),
+        KronotermDailyEnergySensor(
+            coordinator, "energy_dhw", device_info, "CompTapWater"
+        ),
+        KronotermDailyEnergySensor(
+            coordinator, "energy_circulation", device_info, "CPLoops"
+        ),
+        KronotermDailyEnergySensor(
+            coordinator, "energy_heater", device_info, "CPAddSource"
+        ),
         KronotermDailyEnergyCombinedSensor(
             coordinator,
             "energy_combined",
@@ -734,10 +770,10 @@ async def _async_setup_modbus_entities(
     """Setup entities for Modbus coordinator using JSON register map."""
     all_entities = []
     register_map = coordinator.register_map
-    
+
     # Get all readable registers suitable for sensors
     sensors_to_create = register_map.get_sensors()
-    
+
     # Skip registers that are handled by binary_sensor.py (Status registers with 0/1 values + Bitmasks)
     BINARY_SENSOR_ADDRESSES = {
         2002,  # additional_activations (bitmask)
@@ -752,30 +788,33 @@ async def _async_setup_modbus_entities(
         2075,  # circulation_loop_4
         2088,  # alternative_source_pump
     }
-    
+
     _LOGGER.info("Found %d sensor registers in map", len(sensors_to_create))
-    
+
     for reg_def in sensors_to_create:
         try:
             # Skip Bitmask registers (handled by binary_sensor.py)
             if reg_def.type == "Bitmask":
                 continue
-            
+
             # Skip registers that are binary sensors
             if reg_def.address in BINARY_SENSOR_ADDRESSES:
                 continue
-            
+
             # Skip registers based on features not installed
             if not _should_create_sensor(coordinator, reg_def):
                 continue
-            
+
             # Create appropriate entity based on register type
             if reg_def.type == "Enum":
                 # Enum sensor
                 if not reg_def.values:
-                    _LOGGER.debug("Skipping enum register %d with no value mappings", reg_def.address)
+                    _LOGGER.debug(
+                        "Skipping enum register %d with no value mappings",
+                        reg_def.address,
+                    )
                     continue
-                
+
                 entity = KronotermEnumSensor(
                     coordinator=coordinator,
                     address=reg_def.address,
@@ -799,34 +838,48 @@ async def _async_setup_modbus_entities(
                 if reg_def.name_en in ("cop_value", "scop_value"):
                     entity._attr_state_class = SensorStateClass.MEASUREMENT
                     entity._attr_native_unit_of_measurement = ""
-                
+
                 # Apply device and state classes based on unit/type
                 # Explicit state_class for key sensors (avoid HA repairs)
-                if reg_def.name_en in ("temperature_compressor_inlet", "temperature_compressor_outlet", "temperature_outside", "heating_system_pressure", "hp_load", "current_heating_cooling_power", "electrical_energy_heating_dhw"):
+                if reg_def.name_en in (
+                    "temperature_compressor_inlet",
+                    "temperature_compressor_outlet",
+                    "temperature_outside",
+                    "heating_system_pressure",
+                    "hp_load",
+                    "current_heating_cooling_power",
+                    "electrical_energy_heating_dhw",
+                ):
                     entity._attr_state_class = SensorStateClass.MEASUREMENT
                 _apply_sensor_classes(entity, reg_def)
-            
+
             # Mark diagnostic sensors
             if _is_diagnostic_sensor(reg_def):
                 entity._attr_entity_category = EntityCategory.DIAGNOSTIC
-            
+
             all_entities.append(entity)
-            
+
         except Exception as e:
-            _LOGGER.warning("Error creating sensor for register %d (%s): %s",
-                          reg_def.address, reg_def.name, e)
+            _LOGGER.warning(
+                "Error creating sensor for register %d (%s): %s",
+                reg_def.address,
+                reg_def.name,
+                e,
+            )
             continue
-    
+
     if all_entities:
         async_add_entities(all_entities)
         _LOGGER.info("Added %d Modbus sensors from register map", len(all_entities))
     else:
         _LOGGER.warning("No Modbus sensors created from register map!")
-    
+
     return True
 
 
-def _should_create_sensor(coordinator: DataUpdateCoordinator, reg_def: RegisterDefinition) -> bool:
+def _should_create_sensor(
+    coordinator: DataUpdateCoordinator, reg_def: RegisterDefinition
+) -> bool:
     """Check if sensor should be created based on feature flags."""
     name_lower = reg_def.name_en.lower()
     modbus_data = coordinator.data.get("main", {}) if coordinator.data else {}
@@ -845,7 +898,11 @@ def _should_create_sensor(coordinator: DataUpdateCoordinator, reg_def: RegisterD
         return False
 
     # Skip registers that should be binary sensors instead of enum sensors
-    if reg_def.address in (2003, 2004, 2011):  # reserve_source, alternative_source, defrost_status
+    if reg_def.address in (
+        2003,
+        2004,
+        2011,
+    ):  # reserve_source, alternative_source, defrost_status
         return False
 
     # Skip offset registers - they're handled by number entities only
@@ -861,7 +918,9 @@ def _should_create_sensor(coordinator: DataUpdateCoordinator, reg_def: RegisterD
         return False
 
     # Skip alternative_source_temperature if not installed (but keep alternative_source status sensor)
-    if "alternative_source_temperature" in name_lower and not getattr(coordinator, "alt_source_installed", False):
+    if "alternative_source_temperature" in name_lower and not getattr(
+        coordinator, "alt_source_installed", False
+    ):
         return False
 
     # Skip loop sensors based on installation
@@ -918,7 +977,7 @@ def _is_diagnostic_sensor(reg_def: RegisterDefinition) -> bool:
         "cop",
         "scop",
     ]
-    
+
     name_lower = reg_def.name_en.lower()
     return any(keyword in name_lower for keyword in diagnostic_keywords)
 
@@ -926,10 +985,14 @@ def _is_diagnostic_sensor(reg_def: RegisterDefinition) -> bool:
 def _get_icon_for_register(reg_def: RegisterDefinition) -> str:
     """Get appropriate icon based on register name and type."""
     name_lower = reg_def.name_en.lower()
-    
+
     # Temperature sensors
     if "temperature" in name_lower or reg_def.unit == "°C":
-        if "outdoor" in name_lower or "outside" in name_lower or "external" in name_lower:
+        if (
+            "outdoor" in name_lower
+            or "outside" in name_lower
+            or "external" in name_lower
+        ):
             return "mdi:thermometer"
         elif "water" in name_lower or "dhw" in name_lower:
             return "mdi:water-thermometer"
@@ -941,72 +1004,74 @@ def _get_icon_for_register(reg_def: RegisterDefinition) -> str:
             return "mdi:thermostat"
         else:
             return "mdi:thermometer"
-    
+
     # Power/Energy
     if "power" in name_lower or "electrical" in name_lower or reg_def.unit == "W":
         return "mdi:lightning-bolt"
     if "energy" in name_lower or reg_def.unit == "kWh":
         return "mdi:meter-electric"
-    
+
     # Pressure
     if "pressure" in name_lower or reg_def.unit == "bar":
         return "mdi:gauge"
-    
+
     # Time/Hours
     if "hours" in name_lower or reg_def.unit == "h":
         return "mdi:timer-outline"
-    
+
     # Pumps
     if "pump" in name_lower or "črpalka" in reg_def.name.lower():
         return "mdi:pump"
-    
+
     # Compressor
     if "compressor" in name_lower or "kompresor" in reg_def.name.lower():
         return "mdi:engine"
-    
+
     # Load/Percentage
     if "load" in name_lower or reg_def.unit == "%":
         return "mdi:gauge"
-    
+
     # COP/SCOP
     if "cop" in name_lower or "scop" in name_lower:
         return "mdi:chart-line"
-    
+
     # Status/Mode
     if reg_def.type in ("Status", "Enum"):
         return "mdi:information-outline"
-    
+
     # Default
     return "mdi:flash"
 
 
-def _apply_sensor_classes(entity: KronotermModbusRegSensor, reg_def: RegisterDefinition) -> None:
+def _apply_sensor_classes(
+    entity: KronotermModbusRegSensor, reg_def: RegisterDefinition
+) -> None:
     """Apply device_class and state_class based on register properties."""
     # Temperature
     if reg_def.unit == "°C":
         entity._attr_device_class = SensorDeviceClass.TEMPERATURE
         entity._attr_state_class = SensorStateClass.MEASUREMENT
-    
+
     # Energy
     elif reg_def.unit == "kWh":
         entity._attr_device_class = SensorDeviceClass.ENERGY
         entity._attr_state_class = SensorStateClass.TOTAL_INCREASING
-    
+
     # Power
     elif reg_def.unit == "W":
         entity._attr_device_class = SensorDeviceClass.POWER
         entity._attr_state_class = SensorStateClass.MEASUREMENT
-    
+
     # Pressure
     elif reg_def.unit == "bar":
         entity._attr_device_class = SensorDeviceClass.PRESSURE
         entity._attr_state_class = SensorStateClass.MEASUREMENT
-    
+
     # Duration (hours)
     elif reg_def.unit == "h":
         entity._attr_device_class = SensorDeviceClass.DURATION
         entity._attr_state_class = SensorStateClass.TOTAL_INCREASING
-    
+
     # Percentage
     elif reg_def.unit == "%":
         entity._attr_state_class = SensorStateClass.MEASUREMENT
