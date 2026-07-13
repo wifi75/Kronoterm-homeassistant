@@ -615,48 +615,60 @@
     },
     "switch": {
       "heatpump_switch": {
-        "name": "Pompa di Calore ON/OFF"
+        "name": "Comando · Pompa di calore ON/OFF"
       },
       "dhw_circulation_switch": {
-        "name": "Circolazione ACS"
+        "name": "Comando · Circolazione ACS"
       },
       "fast_heating_switch": {
-        "name": "Riscaldamento Rapido dell'Acqua"
+        "name": "Comando · Riscaldamento rapido ACS"
       },
       "antilegionella_switch": {
-        "name": "Antilegionella"
+        "name": "Comando · Antilegionella"
       },
       "loop1_temp_source_switch": {
-        "name": "Circuito 1 Usa Sorgente Temp JSON"
+        "name": "Comando · Circuito 1 usa sorgente temperatura JSON"
       },
       "reservoir_entity_switch": {
-        "name": "Abilita Entità Clima Serbatoio"
+        "name": "Comando · Abilita temperatura accumulo"
       },
       "reserve_source_switch": {
-        "name": "Fonte di Riserva (Riscaldatore Elettrico)"
+        "name": "Comando · Fonte di riserva (riscaldatore elettrico)"
       },
       "additional_source_switch": {
-        "name": "Fonte Aggiuntiva"
+        "name": "Comando · Fonte aggiuntiva"
+      },
+      "dhw_luxury_shower": {
+        "name": "Comando · Doccia comfort"
+      },
+      "dhw_antilegionella": {
+        "name": "Comando · Antilegionella ACS"
+      },
+      "dhw_reserve_source": {
+        "name": "Comando · Fonte di riserva ACS"
+      },
+      "dhw_holiday": {
+        "name": "Comando · Modalità vacanza ACS"
       }
     },
     "select": {
       "loop_1_operation": {
-        "name": "Modalità Operativa Circuito 1"
+        "name": "Regolazione · Modalità operativa circuito 1"
       },
       "loop_2_operation": {
-        "name": "Modalità Operativa Circuito 2"
+        "name": "Regolazione · Modalità operativa circuito 2"
       },
       "loop_3_operation": {
-        "name": "Modalità Operativa Circuito 3"
+        "name": "Regolazione · Modalità operativa circuito 3"
       },
       "loop_4_operation": {
-        "name": "Modalità Operativa Circuito 4"
+        "name": "Regolazione · Modalità operativa circuito 4"
       },
       "sanitary_water_operation": {
-        "name": "Modalità Operativa ACS"
+        "name": "Regolazione · Modalità operativa ACS"
       },
       "operational_mode": {
-        "name": "Modalità Operativa",
+        "name": "Regolazione · Modalità operativa",
         "state": {
           "auto": "Automatico",
           "comfort": "Comfort",
@@ -664,7 +676,7 @@
         }
       },
       "system_regime": {
-        "name": "Regime sistema",
+        "name": "Regolazione · Regime sistema",
         "state": {
           "heat": "Riscaldamento",
           "cool": "Raffrescamento",
@@ -675,72 +687,72 @@
     },
     "number": {
       "loop_1_eco_offset": {
-        "name": "Scarto ECO Circuito 1"
+        "name": "Regolazione · Offset ECO circuito 1"
       },
       "loop_1_comfort_offset": {
-        "name": "Scarto COMFORT Circuito 1"
+        "name": "Regolazione · Offset comfort circuito 1"
       },
       "loop_2_eco_offset": {
-        "name": "Scarto ECO Circuito 2"
+        "name": "Regolazione · Offset ECO circuito 2"
       },
       "loop_2_comfort_offset": {
-        "name": "Scarto COMFORT Circuito 2"
+        "name": "Regolazione · Offset comfort circuito 2"
       },
       "loop_3_eco_offset": {
-        "name": "Scarto ECO Circuito 3"
+        "name": "Regolazione · Offset ECO circuito 3"
       },
       "loop_3_comfort_offset": {
-        "name": "Scarto COMFORT Circuito 3"
+        "name": "Regolazione · Offset comfort circuito 3"
       },
       "loop_4_eco_offset": {
-        "name": "Scarto ECO Circuito 4"
+        "name": "Regolazione · Offset ECO circuito 4"
       },
       "loop_4_comfort_offset": {
-        "name": "Scarto COMFORT Circuito 4"
+        "name": "Regolazione · Offset comfort circuito 4"
       },
       "dhw_eco_offset": {
-        "name": "Scarto ECO ACS"
+        "name": "Regolazione · Offset ECO ACS"
       },
       "dhw_comfort_offset": {
-        "name": "Scarto COMFORT ACS"
+        "name": "Regolazione · Offset comfort ACS"
       },
       "update_interval": {
         "name": "Intervallo di Aggiornamento (min)"
       },
       "main_temperature_offset": {
-        "name": "Scarto temperatura sistema"
+        "name": "Regolazione · Offset temperatura sistema"
       },
       "hp_eco_offset": {
-        "name": "Offset ECO pompa di calore"
+        "name": "Regolazione · Offset ECO pompa di calore"
       },
       "hp_comfort_offset": {
-        "name": "Offset comfort pompa di calore"
+        "name": "Regolazione · Offset comfort pompa di calore"
       },
       "pool_eco_offset": {
-        "name": "Offset ECO piscina"
+        "name": "Regolazione · Offset ECO piscina"
       },
       "pool_comfort_offset": {
-        "name": "Offset comfort piscina"
+        "name": "Regolazione · Offset comfort piscina"
       }
     },
     "climate": {
       "dhw_temperature": {
-        "name": "Temperatura ACS"
+        "name": "Temperatura · ACS"
       },
       "loop_1_temperature": {
-        "name": "Temperatura Circuito 1"
+        "name": "Temperatura · Circuito 1"
       },
       "loop_2_temperature": {
-        "name": "Temperatura Circuito 2"
+        "name": "Temperatura · Circuito 2"
       },
       "loop_3_temperature": {
-        "name": "Temperatura Circuito 3"
+        "name": "Temperatura · Circuito 3"
       },
       "loop_4_temperature": {
-        "name": "Temperatura Circuito 4"
+        "name": "Temperatura · Circuito 4"
       },
       "reservoir_temperature": {
-        "name": "Temperatura accumulo (puffer)"
+        "name": "Temperatura · Accumulo (puffer)"
       }
     },
     "button": {

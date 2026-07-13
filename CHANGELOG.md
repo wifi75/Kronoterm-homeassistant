@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-07-13 — v1.7.2
+
+### Changed
+- Groups all Italian heating and DHW controls by sortable labels: `Comando` switches first, `Regolazione` selectors and offsets second, and `Temperatura` climate values last.
+- Lets Home Assistant resolve climate names from translations instead of forcing the English fallback names (`DHW Temperature` and `Loop Temperature`).
+
 ## 2026-07-13 — v1.7.1
 
 ### Fixed
