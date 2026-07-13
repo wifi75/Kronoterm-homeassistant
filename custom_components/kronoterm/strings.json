@@ -20,10 +20,6 @@
           "cloud_type": "Select Heat Pump Type"
         }
       },
-      "cloud_type": {
-        "cloud": "Heating heat pump",
-        "dhw": "Sanitary water heat pump"
-      },
       "modbus": {
         "title": "Modbus TCP Configuration",
         "description": "Configure local Modbus TCP connection to your heat pump",
@@ -39,21 +35,7 @@
           "unit_id": "Modbus slave address (default: 20)",
           "model": "Select your heat pump model for accurate energy calculation"
         }
-      }
-    },
-    "error": {
-      "cannot_connect": "Failed to connect to the device. Please check the connection details.",
-      "cannot_read": "Connected but failed to read data from device. Check unit ID.",
-      "invalid_auth": "Invalid username or password.",
-      "unknown": "Unexpected error occurred. Check logs for details."
-    },
-    "abort": {
-      "already_configured": "Device is already configured",
-      "reconfigure_successful": "Reconfiguration successful. Entities preserved."
-    }
-  },
-  "reconfigure": {
-    "step": {
+      },
       "reconfigure_connection_type": {
         "title": "Change Connection Type",
         "description": "Current connection: {current_type}. Choose new connection type (entities will be preserved)",
@@ -95,6 +77,10 @@
       "cannot_read": "Connected but failed to read data from device. Check unit ID.",
       "invalid_auth": "Invalid username or password.",
       "unknown": "Unexpected error occurred. Check logs for details."
+    },
+    "abort": {
+      "already_configured": "Device is already configured",
+      "reconfigure_successful": "Reconfiguration successful. Entities preserved."
     }
   },
   "options": {

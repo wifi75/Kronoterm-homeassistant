@@ -11,6 +11,9 @@
     "number",
     "climate"
   ],
+  "after_dependencies": [
+    "recorder"
+  ],
   "documentation": "https://github.com/wifi75/Kronoterm-homeassistant",
   "integration_type": "device",
   "iot_class": "local_polling",

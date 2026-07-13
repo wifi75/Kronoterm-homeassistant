@@ -44,47 +44,6 @@
       "reconfigure_successful": "Rekonfiguracija uspešna. Entitete so ohranjene."
     }
   },
-  "reconfigure": {
-    "step": {
-      "reconfigure_connection_type": {
-        "title": "Spremeni Vrsto Povezave",
-        "description": "Trenutna povezava: {current_type}. Izberite novo vrsto povezave (entitete bodo ohranjene)",
-        "data": {
-          "connection_type": "Vrsta Povezave"
-        }
-      },
-      "reconfigure_cloud": {
-        "title": "Konfiguracija Cloud API",
-        "description": "Konfigurirajte cloud povezavo (entitete bodo ohranjene)",
-        "data": {
-          "username": "Uporabniško Ime",
-          "password": "Geslo"
-        }
-      },
-      "reconfigure_modbus": {
-        "title": "Konfiguracija Modbus TCP",
-        "description": "Konfigurirajte lokalno Modbus povezavo (entitete bodo ohranjene)",
-        "data": {
-          "host": "IP Naslov",
-          "port": "Vrata",
-          "unit_id": "Modbus Unit ID",
-          "model": "Model Toplotne Črpalke"
-        },
-        "data_description": {
-          "host": "IP naslov vaše Kronoterm toplotne črpalke v lokalnem omrežju",
-          "port": "Modbus TCP vrata (privzeto: 502)",
-          "unit_id": "Modbus slave naslov (privzeto: 20)",
-          "model": "Izberite model vaše toplotne črpalke za natančen izračun energije"
-        }
-      }
-    },
-    "error": {
-      "cannot_connect": "Povezava z napravo ni uspela. Prosimo, preverite podatke za povezavo.",
-      "cannot_read": "Povezano, vendar branje podatkov iz naprave ni uspelo. Preverite Unit ID.",
-      "invalid_auth": "Neveljavno uporabniško ime ali geslo.",
-      "unknown": "Prišlo je do nepričakovane napake. Preverite dnevnike za podrobnosti."
-    }
-  },
   "options": {
     "step": {
       "init": {

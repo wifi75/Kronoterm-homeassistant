@@ -2,6 +2,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
+from homeassistant.helpers import config_validation as cv
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from .const import DOMAIN
 from .coordinator import KronotermMainCoordinator, KronotermDHWCoordinator
@@ -10,6 +11,8 @@ from .config_flow_modbus import CONNECTION_TYPE_MODBUS
 from .entity_migration import async_migrate_entity_registry
 
 _LOGGER = logging.getLogger(__name__)
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 PLATFORMS = [
     "sensor",

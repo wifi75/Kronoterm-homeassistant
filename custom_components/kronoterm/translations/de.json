@@ -44,47 +44,6 @@
       "reconfigure_successful": "Rekonfiguration erfolgreich. Entitäten wurden beibehalten."
     }
   },
-  "reconfigure": {
-    "step": {
-      "reconfigure_connection_type": {
-        "title": "Verbindungstyp ändern",
-        "description": "Aktuelle Verbindung: {current_type}. Neuen Verbindungstyp wählen (Entitäten bleiben erhalten)",
-        "data": {
-          "connection_type": "Verbindungstyp"
-        }
-      },
-      "reconfigure_cloud": {
-        "title": "Cloud-API-Konfiguration",
-        "description": "Cloud-Verbindung konfigurieren (Entitäten bleiben erhalten)",
-        "data": {
-          "username": "Benutzername",
-          "password": "Passwort"
-        }
-      },
-      "reconfigure_modbus": {
-        "title": "Modbus TCP-Konfiguration",
-        "description": "Lokale Modbus-Verbindung konfigurieren (Entitäten bleiben erhalten)",
-        "data": {
-          "host": "IP-Adresse",
-          "port": "Port",
-          "unit_id": "Modbus Unit ID",
-          "model": "Wärmepumpen-Modell"
-        },
-        "data_description": {
-          "host": "IP-Adresse Ihrer Kronoterm-Wärmepumpe im lokalen Netzwerk",
-          "port": "Modbus TCP-Port (Standard: 502)",
-          "unit_id": "Modbus-Slave-Adresse (Standard: 20)",
-          "model": "Wählen Sie Ihr Wärmepumpenmodell für genaue Energieberechnung"
-        }
-      }
-    },
-    "error": {
-      "cannot_connect": "Verbindung zum Gerät fehlgeschlagen. Bitte überprüfen Sie die Verbindungsdaten.",
-      "cannot_read": "Verbunden, aber Datenabruf vom Gerät fehlgeschlagen. Überprüfen Sie die Unit ID.",
-      "invalid_auth": "Ungültiger Benutzername oder Passwort.",
-      "unknown": "Unerwarteter Fehler aufgetreten. Überprüfen Sie die Logs für Details."
-    }
-  },
   "options": {
     "step": {
       "init": {

@@ -44,47 +44,6 @@
       "reconfigure_successful": "Riconfigurazione completata. Entità preservate."
     }
   },
-  "reconfigure": {
-    "step": {
-      "reconfigure_connection_type": {
-        "title": "Cambia Tipo di Connessione",
-        "description": "Connessione attuale: {current_type}. Scegli un nuovo tipo di connessione (le entità verranno preservate)",
-        "data": {
-          "connection_type": "Tipo di Connessione"
-        }
-      },
-      "reconfigure_cloud": {
-        "title": "Configurazione API Cloud",
-        "description": "Configura la connessione cloud (le entità verranno preservate)",
-        "data": {
-          "username": "Nome Utente",
-          "password": "Password"
-        }
-      },
-      "reconfigure_modbus": {
-        "title": "Configurazione Modbus TCP",
-        "description": "Configura la connessione Modbus locale (le entità verranno preservate)",
-        "data": {
-          "host": "Indirizzo IP",
-          "port": "Porta",
-          "unit_id": "Modbus Unit ID",
-          "model": "Modello Pompa di Calore"
-        },
-        "data_description": {
-          "host": "Indirizzo IP della tua pompa di calore Kronoterm sulla rete locale",
-          "port": "Porta Modbus TCP (predefinito: 502)",
-          "unit_id": "Indirizzo slave Modbus (predefinito: 20)",
-          "model": "Seleziona il modello della tua pompa di calore per un calcolo energetico accurato"
-        }
-      }
-    },
-    "error": {
-      "cannot_connect": "Impossibile connettersi al dispositivo. Controlla i dettagli della connessione.",
-      "cannot_read": "Connesso ma impossibile leggere i dati dal dispositivo. Controlla l'Unit ID.",
-      "invalid_auth": "Nome utente o password non validi.",
-      "unknown": "Si è verificato un errore imprevisto. Controlla i log per i dettagli."
-    }
-  },
   "options": {
     "step": {
       "init": {
