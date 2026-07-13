@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-13 — v1.7.1
+
+### Fixed
+- Stops exposing a phantom “Reservoir Temperature” climate entity when the Kronoterm Cloud returns the `500 °C` sentinel used for systems without a buffer tank.
+- Filters invalid and non-finite temperature values consistently across Cloud and Modbus climate entities.
+- Clarifies the Italian label as “Temperatura accumulo (puffer)”.
+
 ## 2026-07-13 — v1.7.0
 
 ### Fixed

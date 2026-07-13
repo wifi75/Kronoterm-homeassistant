@@ -16,6 +16,7 @@ from homeassistant.helpers.update_coordinator import (
 
 # Import the Modbus addresses needed for Loop 1
 from .const import DOMAIN  # MODIFIED: Removed Loop1 specific addrs
+from .temperature import parse_temperature
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -288,12 +289,7 @@ class KronotermJsonClimate(KronotermBaseClimate):
             return None
         temps = data.get(self._current_temp_section, {})
         raw = temps.get(self._current_temp_json_key)
-        if not raw or raw in ("-60.0", "unknown", "unavailable"):
-            return None
-        try:
-            return float(raw)
-        except (ValueError, TypeError):
-            return None
+        return parse_temperature(raw)
 
     @property
     def target_temperature(self) -> float | None:
@@ -302,12 +298,7 @@ class KronotermJsonClimate(KronotermBaseClimate):
             return None
         circle_data = data.get("HeatingCircleData", {})
         raw = circle_data.get(self._target_temp_json_key)
-        if not raw or raw in ("unknown", "unavailable"):
-            return None
-        try:
-            return float(raw)
-        except (ValueError, TypeError):
-            return None
+        return parse_temperature(raw, minimum=0.0, maximum=100.0)
 
 
 class KronotermLoopJsonClimate(KronotermJsonClimate):
@@ -473,10 +464,7 @@ class KronotermDHWCloudClimate(KronotermBaseClimate):
                 raw = data.get("BasicData", {}).get("boiler_calc_temp")
             if raw is None:
                 raw = data.get("BasicData", {}).get("boiler_temp")
-        try:
-            return float(raw)
-        except (TypeError, ValueError):
-            return None
+        return parse_temperature(raw)
 
     @property
     def target_temperature(self) -> float | None:
@@ -485,10 +473,7 @@ class KronotermDHWCloudClimate(KronotermBaseClimate):
         if raw is None:
             data = (self.coordinator.data or {}).get("main", {})
             raw = data.get("BasicData", {}).get("boiler_setpoint")
-        try:
-            return float(raw)
-        except (TypeError, ValueError):
-            return None
+        return parse_temperature(raw, minimum=0.0, maximum=100.0)
 
     @property
     def preset_mode(self) -> str | None:
@@ -877,12 +862,14 @@ class KronotermModbusBaseClimate(CoordinatorEntity, ClimateEntity):
             thermostat_temp = self._get_register_value(self._thermostat_temp_address)
             # Filter invalid thermostat values (-60°C, -40°C, 0°C)
             # TT3000 systems return -40°C for unavailable thermostats
-            if thermostat_temp is not None and thermostat_temp not in (-60.0, -40.0, 0.0):
+            thermostat_temp = parse_temperature(thermostat_temp)
+            if thermostat_temp is not None and thermostat_temp not in (-40.0, 0.0):
                 return thermostat_temp
 
         # Fall back to loop temperature
         loop_temp = self._get_register_value(self._current_temp_address)
-        if loop_temp is not None and loop_temp != -60.0:
+        loop_temp = parse_temperature(loop_temp)
+        if loop_temp is not None:
             return loop_temp
 
         return None

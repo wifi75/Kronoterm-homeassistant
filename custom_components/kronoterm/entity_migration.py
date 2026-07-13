@@ -193,3 +193,22 @@ async def async_migrate_entity_registry(
             (f"{DOMAIN}_{suffix}",),
             f"{entry_prefix}{suffix}",
         )
+
+    # The Cloud exposes the reservoir page even when no buffer tank exists.
+    # A 500°C current value is its sentinel; remove the previously-created
+    # phantom registry entity so it does not remain as an unavailable duplicate.
+    reservoir_data = ((coordinator.data or {}).get("reservoir") or {}).get(
+        "HeatingCircleData"
+    ) or {}
+    try:
+        reservoir_sentinel = float(reservoir_data.get("circle_calc_temp")) >= 500.0
+    except (TypeError, ValueError):
+        reservoir_sentinel = False
+
+    if reservoir_sentinel and not getattr(coordinator, "reservoir_installed", False):
+        unique_id = f"{entry_prefix}reservoir_climate"
+        entity_id = registry.async_get_entity_id("climate", DOMAIN, unique_id)
+        entity_entry = registry.async_get(entity_id) if entity_id else None
+        if entity_entry and entity_entry.config_entry_id == entry.entry_id:
+            registry.async_remove(entity_id)
+            _LOGGER.info("Removed phantom reservoir entity %s", entity_id)

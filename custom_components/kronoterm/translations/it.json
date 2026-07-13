@@ -740,7 +740,7 @@
         "name": "Temperatura Circuito 4"
       },
       "reservoir_temperature": {
-        "name": "Temperatura del Serbatoio"
+        "name": "Temperatura accumulo (puffer)"
       }
     },
     "button": {

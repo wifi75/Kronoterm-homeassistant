@@ -34,6 +34,7 @@ from .const import (
     MAX_RETRY_ATTEMPTS,
     RETRY_DELAY_BASE,
 )
+from .temperature import parse_temperature
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -51,6 +52,18 @@ def _loop_payload_available(data: Optional[Dict[str, Any]], loop_number: int) ->
     payload = (data or {}).get(f"loop{loop_number}") or {}
     temperatures = payload.get("TemperaturesAndConfig") or {}
     return f"heating_circle_{loop_number}_temp" in temperatures
+
+
+def _reservoir_payload_available(data: Optional[Dict[str, Any]]) -> bool:
+    """Return whether the cloud exposes a physical buffer-tank temperature."""
+    payload = (data or {}).get("reservoir") or {}
+    circle_data = payload.get("HeatingCircleData") or {}
+    return (
+        parse_temperature(
+            circle_data.get("circle_calc_temp"), minimum=0.0, maximum=100.0
+        )
+        is not None
+    )
 
 
 class KronotermBaseCoordinator(DataUpdateCoordinator):
@@ -459,7 +472,9 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
 
             temp_config = info_data.get("TemperaturesAndConfig", {})
             self.pool_installed = _api_flag(temp_config.get("pool_active", 0))
-            self.reservoir_installed = True
+            # This endpoint also exists without a buffer tank; in that case the
+            # cloud returns 500°C as an invalid sentinel.
+            self.reservoir_installed = _reservoir_payload_available(self.data)
             self.alt_source_installed = _api_flag(
                 temp_config.get("alt_source_temp_visible", 0)
             )
