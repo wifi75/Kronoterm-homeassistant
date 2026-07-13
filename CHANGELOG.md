@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-13 — v1.7.3
+
+### Changed
+- Shortens Italian entity labels to fit Home Assistant's narrow device-control column without truncation.
+- Preserves type-based sorting with compact `ON/OFF`, `SET`, and `TEMP` prefixes and uses `C1`–`C4` for heating circuits.
+- Runs validation on feature branches only through pull requests, avoiding duplicate GitHub Actions runs and failure emails for every branch push.
+
 ## 2026-07-13 — v1.7.2
 
 ### Changed
