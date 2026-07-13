@@ -1,6 +1,8 @@
 from typing import NamedTuple, Dict, List, Set, Optional
 
 DOMAIN = "kronoterm"
+DEVICE_MANUFACTURER = "Kronoterm · Enhanced by Tiziano Cassone (@wifi75)"
+PROJECT_URL = "https://github.com/wifi75/Kronoterm-homeassistant"
 BASE_URL = "https://cloud.kronoterm.com/jsoncgi.php"
 BASE_URL_DHW = "https://cloud.kronoterm.com/dhws/jsoncgi.php"
 

@@ -20,6 +20,8 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     DOMAIN,
+    DEVICE_MANUFACTURER,
+    PROJECT_URL,
     BASE_URL,
     BASE_URL_DHW,
     API_QUERIES_GET,
@@ -502,9 +504,10 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
         self.shared_device_info = {
             "identifiers": {(DOMAIN, self.config_entry.entry_id)},
             "name": "Kronoterm Heat Pump",
-            "manufacturer": "Kronoterm",
+            "manufacturer": DEVICE_MANUFACTURER,
             "model": info_data_section.get("pumpModel", "Unknown Model"),
             "sw_version": info_data_section.get("firmware", "Unknown Firmware"),
+            "configuration_url": PROJECT_URL,
         }
 
     async def _async_update_data(self) -> Dict[str, Any]:
@@ -1032,9 +1035,10 @@ class KronotermDHWCoordinator(KronotermBaseCoordinator):
         self.shared_device_info = {
             "identifiers": {(DOMAIN, self.config_entry.entry_id)},
             "name": "Kronoterm DHW",
-            "manufacturer": "Kronoterm",
+            "manufacturer": DEVICE_MANUFACTURER,
             "model": "DHW Heat Pump",
             "sw_version": "Unknown",
+            "configuration_url": PROJECT_URL,
         }
 
     async def _async_update_data(self) -> Dict[str, Any]:
