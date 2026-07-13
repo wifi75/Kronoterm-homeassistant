@@ -615,60 +615,60 @@
     },
     "switch": {
       "heatpump_switch": {
-        "name": "Comando · Pompa di calore ON/OFF"
+        "name": "ON/OFF · Pompa"
       },
       "dhw_circulation_switch": {
-        "name": "Comando · Circolazione ACS"
+        "name": "ON/OFF · Circolazione ACS"
       },
       "fast_heating_switch": {
-        "name": "Comando · Riscaldamento rapido ACS"
+        "name": "ON/OFF · ACS rapido"
       },
       "antilegionella_switch": {
-        "name": "Comando · Antilegionella"
+        "name": "ON/OFF · Antilegionella"
       },
       "loop1_temp_source_switch": {
-        "name": "Comando · Circuito 1 usa sorgente temperatura JSON"
+        "name": "ON/OFF · Temp. JSON C1"
       },
       "reservoir_entity_switch": {
-        "name": "Comando · Abilita temperatura accumulo"
+        "name": "ON/OFF · Temp. puffer"
       },
       "reserve_source_switch": {
-        "name": "Comando · Fonte di riserva (riscaldatore elettrico)"
+        "name": "ON/OFF · Riserva elettrica"
       },
       "additional_source_switch": {
-        "name": "Comando · Fonte aggiuntiva"
+        "name": "ON/OFF · Fonte aggiuntiva"
       },
       "dhw_luxury_shower": {
-        "name": "Comando · Doccia comfort"
+        "name": "ON/OFF · Doccia comfort"
       },
       "dhw_antilegionella": {
-        "name": "Comando · Antilegionella ACS"
+        "name": "ON/OFF · Antilegionella ACS"
       },
       "dhw_reserve_source": {
-        "name": "Comando · Fonte di riserva ACS"
+        "name": "ON/OFF · Riserva ACS"
       },
       "dhw_holiday": {
-        "name": "Comando · Modalità vacanza ACS"
+        "name": "ON/OFF · Vacanza ACS"
       }
     },
     "select": {
       "loop_1_operation": {
-        "name": "Regolazione · Modalità operativa circuito 1"
+        "name": "SET · Modalità C1"
       },
       "loop_2_operation": {
-        "name": "Regolazione · Modalità operativa circuito 2"
+        "name": "SET · Modalità C2"
       },
       "loop_3_operation": {
-        "name": "Regolazione · Modalità operativa circuito 3"
+        "name": "SET · Modalità C3"
       },
       "loop_4_operation": {
-        "name": "Regolazione · Modalità operativa circuito 4"
+        "name": "SET · Modalità C4"
       },
       "sanitary_water_operation": {
-        "name": "Regolazione · Modalità operativa ACS"
+        "name": "SET · Modalità ACS"
       },
       "operational_mode": {
-        "name": "Regolazione · Modalità operativa",
+        "name": "SET · Modalità",
         "state": {
           "auto": "Automatico",
           "comfort": "Comfort",
@@ -676,7 +676,7 @@
         }
       },
       "system_regime": {
-        "name": "Regolazione · Regime sistema",
+        "name": "SET · Regime",
         "state": {
           "heat": "Riscaldamento",
           "cool": "Raffrescamento",
@@ -687,72 +687,72 @@
     },
     "number": {
       "loop_1_eco_offset": {
-        "name": "Regolazione · Offset ECO circuito 1"
+        "name": "SET · ECO C1"
       },
       "loop_1_comfort_offset": {
-        "name": "Regolazione · Offset comfort circuito 1"
+        "name": "SET · Comfort C1"
       },
       "loop_2_eco_offset": {
-        "name": "Regolazione · Offset ECO circuito 2"
+        "name": "SET · ECO C2"
       },
       "loop_2_comfort_offset": {
-        "name": "Regolazione · Offset comfort circuito 2"
+        "name": "SET · Comfort C2"
       },
       "loop_3_eco_offset": {
-        "name": "Regolazione · Offset ECO circuito 3"
+        "name": "SET · ECO C3"
       },
       "loop_3_comfort_offset": {
-        "name": "Regolazione · Offset comfort circuito 3"
+        "name": "SET · Comfort C3"
       },
       "loop_4_eco_offset": {
-        "name": "Regolazione · Offset ECO circuito 4"
+        "name": "SET · ECO C4"
       },
       "loop_4_comfort_offset": {
-        "name": "Regolazione · Offset comfort circuito 4"
+        "name": "SET · Comfort C4"
       },
       "dhw_eco_offset": {
-        "name": "Regolazione · Offset ECO ACS"
+        "name": "SET · ECO ACS"
       },
       "dhw_comfort_offset": {
-        "name": "Regolazione · Offset comfort ACS"
+        "name": "SET · Comfort ACS"
       },
       "update_interval": {
-        "name": "Intervallo di Aggiornamento (min)"
+        "name": "SET · Aggiornamento (min)"
       },
       "main_temperature_offset": {
-        "name": "Regolazione · Offset temperatura sistema"
+        "name": "SET · Offset sistema"
       },
       "hp_eco_offset": {
-        "name": "Regolazione · Offset ECO pompa di calore"
+        "name": "SET · ECO pompa"
       },
       "hp_comfort_offset": {
-        "name": "Regolazione · Offset comfort pompa di calore"
+        "name": "SET · Comfort pompa"
       },
       "pool_eco_offset": {
-        "name": "Regolazione · Offset ECO piscina"
+        "name": "SET · ECO piscina"
       },
       "pool_comfort_offset": {
-        "name": "Regolazione · Offset comfort piscina"
+        "name": "SET · Comfort piscina"
       }
     },
     "climate": {
       "dhw_temperature": {
-        "name": "Temperatura · ACS"
+        "name": "TEMP · ACS"
       },
       "loop_1_temperature": {
-        "name": "Temperatura · Circuito 1"
+        "name": "TEMP · C1"
       },
       "loop_2_temperature": {
-        "name": "Temperatura · Circuito 2"
+        "name": "TEMP · C2"
       },
       "loop_3_temperature": {
-        "name": "Temperatura · Circuito 3"
+        "name": "TEMP · C3"
       },
       "loop_4_temperature": {
-        "name": "Temperatura · Circuito 4"
+        "name": "TEMP · C4"
       },
       "reservoir_temperature": {
-        "name": "Temperatura · Accumulo (puffer)"
+        "name": "TEMP · Puffer"
       }
     },
     "button": {
