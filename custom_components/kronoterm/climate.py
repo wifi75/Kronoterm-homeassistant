@@ -127,11 +127,10 @@ class KronotermBaseClimate(CoordinatorEntity, ClimateEntity):
 
         self._page = page
         self._attr_has_entity_name = True
-        # Set a fallback name and use the proper translation key
-        
+        # Let Home Assistant resolve the localized entity name from the
+        # translation key. Setting _attr_name here would override translations.
         self._attr_translation_key = translation_key
         self._attr_entity_id = f"{DOMAIN}.{translation_key}"
-        self._attr_name = fallback_name  # Fallback if no translation is found
 
         self._attr_unique_id = f"{entry.entry_id}_{DOMAIN}_{unique_id_suffix}"
 
@@ -759,7 +758,6 @@ class KronotermModbusBaseClimate(CoordinatorEntity, ClimateEntity):
 
         self._attr_has_entity_name = True
         self._attr_translation_key = translation_key
-        self._attr_name = fallback_name
         self._attr_unique_id = f"{entry.entry_id}_{DOMAIN}_{unique_id_suffix}"
 
         self._enable_preset = enable_preset
