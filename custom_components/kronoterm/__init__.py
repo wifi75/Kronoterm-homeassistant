@@ -106,6 +106,15 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate config entries to the current schema version."""
-    if entry.version < 2:
-        hass.config_entries.async_update_entry(entry, version=2)
+    if entry.version < 3:
+        translated_titles = {
+            "Kronoterm Heat Pump (Cloud)": "Pompa di calore Kronoterm (Cloud)",
+            "Kronoterm DHW (Water Cloud)": "Pompa di calore ACS Kronoterm (Cloud)",
+            "Kronoterm Heat Pump (Modbus)": "Pompa di calore Kronoterm (Modbus)",
+        }
+        hass.config_entries.async_update_entry(
+            entry,
+            title=translated_titles.get(entry.title, entry.title),
+            version=3,
+        )
     return True

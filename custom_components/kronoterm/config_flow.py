@@ -157,7 +157,7 @@ class KronotermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     Handles the configuration flow for the Kronoterm integration.
     """
 
-    VERSION = 2
+    VERSION = 3
 
     def __init__(self) -> None:
         """Initialize the config flow."""
@@ -207,9 +207,9 @@ class KronotermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 user_input["connection_type"] = CONNECTION_TYPE_CLOUD
                 user_input["system_type"] = system_type  # Store system type (cloud/dhw)
 
-                title = "Kronoterm Heat Pump (Cloud)"
+                title = "Pompa di calore Kronoterm (Cloud)"
                 if system_type == "dhw":
-                    title = "Kronoterm DHW (Water Cloud)"
+                    title = "Pompa di calore ACS Kronoterm (Cloud)"
 
                 return self.async_create_entry(title=title, data=user_input)
             elif error_code:
@@ -263,7 +263,7 @@ class KronotermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not error_code:
                 user_input["connection_type"] = CONNECTION_TYPE_MODBUS
                 return self.async_create_entry(
-                    title="Kronoterm Heat Pump (Modbus)",
+                    title="Pompa di calore Kronoterm (Modbus)",
                     data=user_input,
                 )
             errors["base"] = error_code
@@ -287,7 +287,7 @@ class KronotermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not error_code:
                 user_input["connection_type"] = CONNECTION_TYPE_MODBUS
                 return self.async_create_entry(
-                    title="Kronoterm Heat Pump (Modbus)",
+                    title="Pompa di calore Kronoterm (Modbus)",
                     data=user_input,
                 )
             errors["base"] = error_code
@@ -360,9 +360,9 @@ class KronotermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 user_input["connection_type"] = CONNECTION_TYPE_CLOUD
                 user_input["system_type"] = system_type
 
-                title = "Kronoterm Heat Pump (Cloud)"
+                title = "Pompa di calore Kronoterm (Cloud)"
                 if system_type == "dhw":
-                    title = "Kronoterm DHW (Water Cloud)"
+                    title = "Pompa di calore ACS Kronoterm (Cloud)"
 
                 self.hass.config_entries.async_update_entry(
                     self.reconfig_entry, data=user_input, title=title
@@ -441,7 +441,7 @@ class KronotermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self.hass.config_entries.async_update_entry(
                     self.reconfig_entry,
                     data=user_input,
-                    title="Kronoterm Heat Pump (Modbus)",
+                    title="Pompa di calore Kronoterm (Modbus)",
                 )
 
                 await disable_mode_specific_entities(
@@ -478,7 +478,7 @@ class KronotermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self.hass.config_entries.async_update_entry(
                     self.reconfig_entry,
                     data=user_input,
-                    title="Kronoterm Heat Pump (Modbus)",
+                    title="Pompa di calore Kronoterm (Modbus)",
                 )
 
                 await disable_mode_specific_entities(

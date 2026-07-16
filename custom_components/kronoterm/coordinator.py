@@ -503,7 +503,7 @@ class KronotermMainCoordinator(KronotermBaseCoordinator):
         info_data_section = info_data.get("InfoData", {})
         self.shared_device_info = {
             "identifiers": {(DOMAIN, self.config_entry.entry_id)},
-            "name": "Kronoterm Heat Pump",
+            "name": "Pompa di calore Kronoterm",
             "manufacturer": DEVICE_MANUFACTURER,
             "model": info_data_section.get("pumpModel", "Unknown Model"),
             "sw_version": info_data_section.get("firmware", "Unknown Firmware"),
@@ -1034,7 +1034,7 @@ class KronotermDHWCoordinator(KronotermBaseCoordinator):
         # Just set device info manually for now based on what we know.
         self.shared_device_info = {
             "identifiers": {(DOMAIN, self.config_entry.entry_id)},
-            "name": "Kronoterm DHW",
+            "name": "Pompa di calore ACS Kronoterm",
             "manufacturer": DEVICE_MANUFACTURER,
             "model": "DHW Heat Pump",
             "sw_version": "Unknown",
