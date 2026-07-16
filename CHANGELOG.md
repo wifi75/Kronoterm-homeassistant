@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-07-16 — v1.7.5
+
+### Changed
+- Translates the Home Assistant device and configuration-entry names to Italian: `Pompa di calore Kronoterm`.
+- Migrates only the historical default English titles, preserving any title renamed manually by the user.
+
 ## 2026-07-13 — v1.7.4
 
 ### Changed

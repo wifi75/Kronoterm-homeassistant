@@ -279,7 +279,7 @@ class ModbusCoordinator(ModbusReadMixin, ModbusWriteMixin, DataUpdateCoordinator
             # when switching between Cloud and Modbus connection types
             self.shared_device_info = {
                 "identifiers": {(DOMAIN, self.config_entry.entry_id)},
-                "name": "Kronoterm",
+                "name": "Pompa di calore Kronoterm",
                 "manufacturer": DEVICE_MANUFACTURER,
                 "model": model_name,
                 "sw_version": firmware,
@@ -293,7 +293,7 @@ class ModbusCoordinator(ModbusReadMixin, ModbusWriteMixin, DataUpdateCoordinator
             # Use fallback device info
             self.shared_device_info = {
                 "identifiers": {(DOMAIN, self.config_entry.entry_id)},
-                "name": "Kronoterm",
+                "name": "Pompa di calore Kronoterm",
                 "manufacturer": DEVICE_MANUFACTURER,
                 "model": self._format_model_name(),
             }
